@@ -3,6 +3,7 @@ from google.cloud import documentai, storage, firestore
 from PyPDF2 import PdfReader
 import os
 import io
+from google.api_core.client_options import ClientOptions
 
 @functions_framework.cloud_event
 def process_pdf(cloud_event):
@@ -57,12 +58,12 @@ def process_pdf(cloud_event):
         doc_ref = db.collection("sows").document(doc_id)
         doc_ref.set({
             "original_filename": file_name,
-            "display_name": file_name, # Set initial display name
+            "display_name": file_name,
             "status": "PROCESSING_OCR",
             "page_count": page_count,
             "created_at": firestore.SERVER_TIMESTAMP,
             "last_updated_at": firestore.SERVER_TIMESTAMP,
-            "is_template_sample": False # This is always false now for this function
+            "is_template_sample": False
         }, merge=True)
         print(f"Created initial SOW document with ID: {doc_id}")
 
