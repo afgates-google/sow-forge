@@ -1,12 +1,12 @@
 import { Routes } from '@angular/router';
-import { UploadComponent } from './components/upload/upload.component';
-import { DashboardComponent } from './pages/dashboard/dashboard.component';
-import { ResultsComponent } from './pages/results/results.component';
-import { EditorComponent } from './pages/editor/editor.component';
-import { TemplateManagerComponent } from './pages/template-manager/template-manager.component';
-import { TemplateEditorComponent } from './pages/template-editor/template-editor.component';
-import { SettingsComponent } from './pages/settings/settings.component';
-import { PromptManagerComponent } from './pages/prompt-manager/prompt-manager.component';
+import { UploadComponent } from './components/upload/upload';
+import { DashboardComponent } from './pages/dashboard/dashboard';
+import { ResultsComponent } from './pages/results/results';
+import { EditorComponent } from './pages/editor/editor';
+import { TemplateManagerComponent } from './pages/template-manager/template-manager';
+import { TemplateEditorComponent } from './pages/template-editor/template-editor';
+import { SettingsComponent } from './pages/settings/settings';
+import { PromptManagerComponent } from './pages/prompt-manager/prompt-manager';
 
 export const routes: Routes = [
   { path: '', component: UploadComponent },

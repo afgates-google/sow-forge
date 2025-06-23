@@ -63,4 +63,12 @@ export class ApiService {
   updatePrompt(promptId: string, newPromptText: string): Observable<any> {
     return this.http.put(`${this.apiUrl}/prompts/${promptId}`, { prompt_text: newPromptText });
   }
+  /**
+ * Asks the backend to create a new Google Doc from the SOW text.
+ * @param docId The ID of the SOW document in Firestore.
+ * @returns An Observable containing the URL of the newly created Google Doc.
+ */
+  createGoogleDoc(docId: string): Observable<{ doc_url: string }> {
+    return this.http.post<{ doc_url: string }>(`${this.apiUrl}/create-google-doc`, { docId });
+  }
 }

@@ -8,8 +8,8 @@ import { ApiService } from '../../services/api.service';
   selector: 'app-editor',
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, MarkdownModule],
-  templateUrl: './editor.component.html',
-  styleUrls: ['./editor.component.css']
+  templateUrl: './editor.html',
+  styleUrls: ['./editor.css']
 })
 export class EditorComponent implements OnInit {
   sowDocument: any = null;

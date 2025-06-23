@@ -7,8 +7,8 @@ import { ApiService } from '../../services/api.service';
   selector: 'app-upload',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './upload.component.html',
-  styleUrls: ['./upload.component.css']
+  templateUrl: './upload.html',
+  styleUrls: ['./upload.css']
 })
 export class UploadComponent {
   selectedFile: File | null = null;

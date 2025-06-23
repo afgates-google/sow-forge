@@ -7,8 +7,8 @@ import { ApiService } from '../../services/api.service';
   selector: 'app-results',
   standalone: true,
   imports: [CommonModule, RouterModule],
-  templateUrl: './results.component.html',
-  styleUrls: ['./results.component.css']
+  templateUrl: './results.html',
+  styleUrls: ['./results.css']
 })
 export class ResultsComponent implements OnInit {
   docId: string | null = null;
@@ -60,7 +60,7 @@ export class ResultsComponent implements OnInit {
 
   regenerateAnalysis(): void {
     if (!this.docId) return;
-    this.isGeneratingSow = true; // Reuse the flag for UI feedback
+    this.isGeneratingSow = true;
     this.statusMessage = 'Re-triggering analysis pipeline...';
     this.apiService.regenerateAnalysis(this.docId).subscribe({
         next: () => {
