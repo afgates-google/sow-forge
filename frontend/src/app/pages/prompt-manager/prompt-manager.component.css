@@ -1,0 +1,15 @@
+.settings-container, .prompt-manager-container { max-width: 900px; margin: 0 auto; }
+.settings-container h2, .prompt-manager-container h2 { font-size: 1.8rem; }
+.settings-container p, .prompt-manager-container p { color: #666; margin-top: -10px; margin-bottom: 2rem; }
+.setting-group { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid #f1f1f1; }
+.setting-group:last-of-type { border-bottom: none; margin-bottom: 0; }
+.setting-group h4 { font-size: 1.2rem; color: #0056b3; margin-top: 0; margin-bottom: 1.5rem; }
+.form-field { display: flex; flex-direction: column; margin-bottom: 1rem; }
+.form-field label { font-weight: 500; margin-bottom: 0.5rem; }
+.form-field input, .form-field select, .form-field textarea { width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; box-sizing: border-box; }
+.form-field small { font-size: 0.8rem; color: #6c757d; margin-top: 0.5rem; }
+.prompt-editor { min-height: 400px; font-family: monospace; line-height: 1.6; }
+.actions { margin-top: 2rem; display: flex; align-items: center; gap: 1rem; }
+.actions button { padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: bold; color: white; background-color: #007bff; border: none; border-radius: 6px; cursor: pointer; }
+.actions button:disabled { background-color: #ccc; }
+.status-message { font-style: italic; color: #28a745; }

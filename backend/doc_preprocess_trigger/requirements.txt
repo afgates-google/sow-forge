@@ -1,0 +1,6 @@
+functions-framework==3.*
+google-cloud-documentai==2.20.1
+google-cloud-storage==2.14.0
+google-cloud-firestore==2.11.1
+PyPDF2==3.0.1
+protobuf<4.0.0

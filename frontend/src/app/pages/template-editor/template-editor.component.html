@@ -1,0 +1,26 @@
+<div class="editor-container">
+  <div class="editor-header">
+    <a routerLink="/templates" class="back-button">← Back to Template Management</a>
+    <h2 *ngIf="templateDoc">Editing Template: {{ templateDoc.name }}</h2>
+    <div class="actions">
+      <button (click)="saveTemplate()" [disabled]="isSaving" class="save-button">{{ isSaving ? 'Saving...' : 'Save Template' }}</button>
+      <span class="save-status">{{ statusMessage }}</span>
+    </div>
+  </div>
+  <div *ngIf="templateDoc" class="editor-body">
+    <div class="tab-nav">
+      <button (click)="activeTab = 'editor'" [class.active]="activeTab === 'editor'">Editor</button>
+      <button (click)="activeTab = 'preview'" [class.active]="activeTab === 'preview'">Preview</button>
+    </div>
+    <div class="tab-content">
+      <div *ngIf="activeTab === 'editor'" class="editor-pane">
+        <textarea class="sow-editor" [(ngModel)]="editableTemplateText"></textarea>
+      </div>
+      <div *ngIf="activeTab === 'preview'" class="preview-pane">
+        <markdown class="sow-preview" [data]="editableTemplateText"></markdown>
+      </div>
+    </div>
+  </div>
+  <div *ngIf="isLoading"><p>Loading template...</p></div>
+  <div *ngIf="errorMessage"><p class="error">{{ errorMessage }}</p></div>
+</div>

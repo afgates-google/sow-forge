@@ -1,0 +1,45 @@
+<div class="manager-container">
+  <h2>SOW Template Management</h2>
+  <div class="card create-template-card">
+    <h3>Create New Template from Samples</h3>
+    <p>Upload one or more sample SOWs (PDF, TXT, or MD). The AI will analyze them to create a reusable template.</p>
+    <div class="form-group">
+      <label for="templateName">New Template Name</label>
+      <input id="templateName" type="text" [(ngModel)]="newTemplateName" placeholder="e.g., Standard IT Services Template">
+    </div>
+    <div class="form-group">
+      <label for="templateDesc">Description</label>
+      <textarea id="templateDesc" [(ngModel)]="newTemplateDescription" rows="3" placeholder="A brief description..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Sample SOW Files</label>
+      <input #fileInput type="file" (change)="onFilesSelected($event)" accept=".pdf,.txt,.md" multiple hidden>
+      <button (click)="fileInput.click()" class="browse-button">Browse for Files</button>
+    </div>
+    <div *ngIf="selectedFiles.length > 0" class="file-list">
+      <strong>Selected Samples:</strong>
+      <ul><li *ngFor="let file of selectedFiles">{{ file.name }}</li></ul>
+    </div>
+    <button class="action-btn" (click)="generateTemplate()" [disabled]="!newTemplateName || selectedFiles.length === 0 || isGenerating">
+      {{ isGenerating ? 'Generating...' : 'Generate AI Template' }}
+    </button>
+    <div *ngIf="statusMessage" class="status-message">{{ statusMessage }}</div>
+  </div>
+  <div class="card existing-templates-card">
+    <h3>Existing Templates</h3>
+    <div *ngIf="isLoadingTemplates">Loading templates...</div>
+    <ul *ngIf="!isLoadingTemplates && existingTemplates.length > 0">
+      <li *ngFor="let template of existingTemplates">
+        <span class="template-info">
+          <strong>{{ template.name }}</strong>
+          <span>{{ template.description }}</span>
+        </span>
+        <span class="template-actions">
+          <a [routerLink]="['/templates', template.id, 'edit']" class="edit-btn">Edit</a>
+          <button (click)="deleteTemplate(template.id, template.name)" class="delete-btn">Delete</button>
+        </span>
+      </li>
+    </ul>
+    <p *ngIf="!isLoadingTemplates && existingTemplates.length === 0">No templates found.</p>
+  </div>
+</div>

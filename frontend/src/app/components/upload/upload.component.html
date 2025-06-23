@@ -1,0 +1,44 @@
+<div class="creator-card">
+  <div class="card-header">
+    <h2>Create a New SOW from a Legislative Bill</h2>
+    <p>Start by uploading a PDF document. The system will do the rest.</p>
+  </div>
+
+  <div *ngIf="!selectedFile"
+       class="drop-zone"
+       (click)="fileInput.click()"
+       (dragover)="onDragOver($event)"
+       (dragleave)="onDragLeave($event)"
+       (drop)="onDrop($event)">
+    <input #fileInput type="file" (change)="onFileSelected($event)" accept=".pdf" hidden>
+    
+    <div class="drop-zone-prompt">
+      <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h5l5 5v7a4 4 0 01-4 4H7z" />
+      </svg>
+      <p><strong>Drag & Drop your PDF here</strong></p>
+      <p class="browse-text">or click to browse</p>
+    </div>
+  </div>
+
+  <div *ngIf="selectedFile" class="file-info-container">
+    <div class="file-details">
+      <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      <span>{{ selectedFile.name }}</span>
+      <button (click)="removeFile()" class="remove-file-btn" title="Remove file">×</button>
+    </div>
+
+    <button class="action-btn" (click)="uploadFile()" [disabled]="isUploading || isPolling">
+      <span *ngIf="!isUploading && !isPolling">Analyze & Generate SOW</span>
+      <span *ngIf="isUploading">Uploading...</span>
+      <span *ngIf="isPolling">Analysis in Progress...</span>
+    </button>
+
+    <div *ngIf="uploadProgress > 0 || isPolling" class="progress-container">
+      <div class="progress-bar"><div class="progress" [style.width.%]="uploadProgress"></div></div>
+      <p class="status-message">{{ statusMessage }}</p>
+    </div>
+  </div>
+</div>

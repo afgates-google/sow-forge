@@ -1,0 +1,23 @@
+<div class="prompt-manager-container">
+  <h2>AI Prompt Management</h2>
+  <p>Edit the prompts used by the AI to generate analysis and content. Changes take effect immediately.</p>
+  <div class="card">
+    <div class="form-field">
+      <label for="prompt-select">Select a Prompt to Edit</label>
+      <div *ngIf="isLoadingList">Loading prompts...</div>
+      <select *ngIf="!isLoadingList" id="prompt-select" [(ngModel)]="selectedPromptId" (change)="onPromptSelected()">
+        <option value="">-- Choose a prompt --</option>
+        <option *ngFor="let p of prompts" [value]="p.id">{{ p.name }} ({{p.id}})</option>
+      </select>
+    </div>
+    <div *ngIf="selectedPromptId" class="form-field">
+      <label for="prompt-text">Prompt Text</label>
+      <div *ngIf="isLoadingPrompt" class="loading-prompt">Loading...</div>
+      <textarea *ngIf="!isLoadingPrompt" id="prompt-text" class="prompt-editor" [(ngModel)]="editablePromptText"></textarea>
+    </div>
+    <div *ngIf="selectedPromptId" class="actions">
+      <button (click)="savePrompt()" [disabled]="isPristine() || isSaving">{{ isSaving ? 'Saving...' : 'Save Prompt' }}</button>
+      <span class="status-message">{{ statusMessage }}</span>
+    </div>
+  </div>
+</div>

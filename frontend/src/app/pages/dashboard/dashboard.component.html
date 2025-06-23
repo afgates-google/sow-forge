@@ -1,0 +1,43 @@
+<div class="dashboard-container">
+  <h2>Document Dashboard</h2>
+  <p *ngIf="statusMessage" class="status-message">{{ statusMessage }}</p>
+
+  <div *ngIf="isLoading" class="loading-state">Loading documents...</div>
+
+  <table *ngIf="!isLoading && sows.length > 0" class="dashboard-table">
+    <thead>
+      <tr>
+        <th>Document Name</th>
+        <th>Status</th>
+        <th>Last Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let sow of sows" [class.processing]="sow.status.includes('PROCESSING')">
+        <td>
+          <div *ngIf="editingDocId === sow.id" class="edit-name-form">
+            <input [(ngModel)]="editingDocName" (keyup.enter)="saveName(sow.id)" (keyup.escape)="cancelEditing()" cdkFocusInitial>
+            <button (click)="saveName(sow.id)" class="save-name-btn">Save</button>
+            <button (click)="cancelEditing()" class="cancel-name-btn">Cancel</button>
+          </div>
+          <div *ngIf="editingDocId !== sow.id" class="display-name-form">
+            <span>{{ sow.display_name || sow.original_filename }}</span>
+            <button (click)="startEditingName(sow)" class="edit-icon-btn" title="Edit name">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
+            </button>
+          </div>
+        </td>
+        <td><span class="status-badge" [ngClass]="sow.status | lowercase">{{ sow.status }}</span></td>
+        <td>{{ (sow.last_updated_at || sow.created_at) | date:'short' }}</td>
+        <td class="actions-cell">
+          <a *ngIf="sow.analysis" [routerLink]="['/results', sow.id]" class="action-link view-btn">View Analysis</a>
+          <a *ngIf="sow.generated_sow" [routerLink]="['/editor', sow.id]" class="action-link edit-sow">Edit SOW</a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div *ngIf="!isLoading && sows.length === 0" class="no-docs">
+    <p>No documents found. Go to "Create New SOW" to start.</p>
+  </div>
+</div>

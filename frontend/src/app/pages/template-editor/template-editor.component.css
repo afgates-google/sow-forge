@@ -1,0 +1,14 @@
+.editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #e0e0e0; }
+.editor-header h2 { margin: 0; font-size: 1.5rem; }
+.actions .save-button { background-color: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+.actions .gdocs-button { background-color: #4285F4; color: white; margin-left: 10px; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+.actions button:disabled { background-color: #ccc; }
+.save-status { margin-left: 1rem; font-style: italic; }
+.tab-nav { margin-bottom: -1px; }
+.tab-nav button { padding: 10px 20px; border: 1px solid #ccc; background-color: #f8f9fa; cursor: pointer; border-bottom: none; margin-right: 5px; border-radius: 4px 4px 0 0; }
+.tab-nav button.active { background-color: white; border-bottom: 1px solid white; font-weight: bold; }
+.tab-content { border: 1px solid #ccc; padding: 1rem; border-radius: 0 4px 4px 4px; }
+.sow-editor { width: 100%; min-height: 600px; font-family: monospace; font-size: 14px; border: 1px solid #e0e0e0; padding: 10px; resize: vertical; }
+.sow-preview { min-height: 600px; }
+.back-button { display: inline-block; margin-bottom: 1.5rem; color: #007bff; text-decoration: none; }
+.back-button:hover { text-decoration: underline; }

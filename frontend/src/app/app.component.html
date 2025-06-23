@@ -1,0 +1,16 @@
+<div class="app-container">
+  <header class="app-header">
+    <h1>SOW-Forge</h1>
+    <p>AI-Powered Statement of Work Generation</p>
+  </header>
+  <nav class="app-tabs">
+    <a routerLink="/" routerLinkActive="active-tab" [routerLinkActiveOptions]="{exact: true}">Create New SOW</a>
+    <a routerLink="/history" routerLinkActive="active-tab">Document Dashboard</a>
+    <a routerLink="/templates" routerLinkActive="active-tab">Template Management</a>
+    <a routerLink="/prompts" routerLinkActive="active-tab">Prompt Management</a>
+    <a routerLink="/settings" routerLinkActive="active-tab">Settings</a>
+  </nav>
+  <main class="app-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>

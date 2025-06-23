@@ -1,0 +1,31 @@
+<div class="editor-container">
+  <div class="editor-header">
+    <a routerLink="/history" class="back-button">← Back to Dashboard</a>
+    <h2 *ngIf="sowDocument">Editing SOW for: {{ sowDocument.original_filename }}</h2>
+    <div class="actions">
+      <button (click)="saveSow()" [disabled]="isSaving" class="save-button">
+        {{ isSaving ? 'Saving...' : 'Save SOW' }}
+      </button>
+      <button (click)="openInGoogleDocs()" [disabled]="isCreatingDoc" class="gdocs-button">
+        {{ (sowDocument && sowDocument.google_doc_url) ? 'Open in Google Docs' : 'Create Google Doc' }}
+      </button>
+      <span class="save-status">{{ saveStatusMessage }}</span>
+    </div>
+  </div>
+  <div *ngIf="sowDocument" class="editor-body">
+    <div class="tab-nav">
+      <button (click)="activeTab = 'editor'" [class.active]="activeTab === 'editor'">Editor</button>
+      <button (click)="activeTab = 'preview'" [class.active]="activeTab === 'preview'">Preview</button>
+    </div>
+    <div class="tab-content">
+      <div *ngIf="activeTab === 'editor'" class="editor-pane">
+        <textarea class="sow-editor" [(ngModel)]="editableSowText"></textarea>
+      </div>
+      <div *ngIf="activeTab === 'preview'" class="preview-pane">
+        <markdown class="sow-preview" [data]="editableSowText"></markdown>
+      </div>
+    </div>
+  </div>
+  <div *ngIf="isLoading"><p>Loading SOW document...</p></div>
+  <div *ngIf="errorMessage"><p class="error">{{ errorMessage }}</p></div>
+</div>

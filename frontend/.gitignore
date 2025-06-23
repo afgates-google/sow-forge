@@ -1,0 +1,30 @@
+# Compiled output
+/dist
+/tmp
+
+# Dependencies
+/node_modules
+
+# IDEs and editors
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# Environment variables
+.env
+
+# Security sensitive
+/sa-key.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# misc
+.DS_Store
