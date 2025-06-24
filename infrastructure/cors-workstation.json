@@ -1,0 +1,12 @@
+[
+    {
+      "origin": [
+        "http://localhost:4200",
+        "https://*-cs-918520642-default.cs.us-central1-pits.cloudshell.dev",
+        "https://*.cloudworkstations.dev"
+      ],
+      "method": ["GET", "PUT", "POST", "DELETE"],
+      "responseHeader": ["Content-Type", "Access-Control-Allow-Origin"],
+      "maxAgeSeconds": 3600
+    }
+  ]

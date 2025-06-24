@@ -3,15 +3,13 @@ from google.cloud import documentai, storage, firestore
 from PyPDF2 import PdfReader
 import os
 import io
+# --- FIX #1: Import ClientOptions from the correct library ---
 from google.api_core.client_options import ClientOptions
 
 @functions_framework.cloud_event
 def process_pdf(cloud_event):
     """
     Acts as a router for incoming legislative bill PDFs.
-    1. Fetches its configuration from Firestore.
-    2. Creates an initial tracking document in the 'sows' collection.
-    3. Checks the PDF page count and routes to sync or batch OCR.
     """
     # --- Initialize clients ---
     storage_client = storage.Client()
@@ -32,14 +30,15 @@ def process_pdf(cloud_event):
         BATCH_OUTPUT_BUCKET_NAME = settings.get("batch_output_bucket")
         
         if not all([GCP_PROJECT_NUMBER, DOCAI_PROCESSOR_ID, DOCAI_LOCATION]):
-            raise Exception("Required settings (processor, location, project number) are missing from Firestore.")
+            raise Exception("Required Document AI settings are missing from Firestore.")
 
-        opts = documentai.client_options.ClientOptions(api_endpoint=f"{DOCAI_LOCATION}-documentai.googleapis.com")
+        # --- FIX #2: Correctly initialize the Document AI client ---
+        opts = ClientOptions(api_endpoint=f"{DOCAI_LOCATION}-documentai.googleapis.com")
         docai_client = documentai.DocumentProcessorServiceClient(client_options=opts)
         PROCESSOR_PATH = f"projects/{GCP_PROJECT_NUMBER}/locations/{DOCAI_LOCATION}/processors/{DOCAI_PROCESSOR_ID}"
         print(f"Using configuration - Processor: {DOCAI_PROCESSOR_ID}")
 
-        # --- 2. Get Event Data ---
+        # --- 3. Get Event Data ---
         data = cloud_event.data
         bucket_name = data["bucket"]
         file_name = data["name"]
@@ -47,13 +46,13 @@ def process_pdf(cloud_event):
         source_bucket = storage_client.bucket(bucket_name)
         blob = source_bucket.blob(file_name)
         
-        # --- 3. Get Page Count ---
+        # --- 4. Get Page Count ---
         pdf_bytes = blob.download_as_bytes()
         reader = PdfReader(io.BytesIO(pdf_bytes))
         page_count = len(reader.pages)
         print(f"Processing '{file_name}': Found {page_count} pages.")
         
-        # --- 4. Create Firestore Record ---
+        # --- 5. Create Firestore Record ---
         doc_id = os.path.splitext(file_name)[0]
         doc_ref = db.collection("sows").document(doc_id)
         doc_ref.set({
@@ -67,7 +66,7 @@ def process_pdf(cloud_event):
         }, merge=True)
         print(f"Created initial SOW document with ID: {doc_id}")
 
-        # --- 5. Route to Sync or Batch Processing ---
+        # --- 6. Route to Sync or Batch Processing ---
         if page_count <= SYNC_PAGE_LIMIT:
             print("Using synchronous processing.")
             gcs_document = documentai.GcsDocument(gcs_uri=f"gs://{bucket_name}/{file_name}", mime_type="application/pdf")

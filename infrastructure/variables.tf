@@ -16,13 +16,13 @@ variable "gcp_region" {
 variable "gcs_location" {
   description = "The location for the GCS buckets (e.g., US, US-CENTRAL1)."
   type        = string
-  default     = "US"
+  default     = "us-central1"
 }
 
 variable "firestore_location" {
   description = "The multi-region location for the Firestore database."
   type        = string
-  default     = "nam5" # Corresponds to us-central
+  default     = "us-central1"
 }
 
 # -----------------------------------------------------------------------------
@@ -40,13 +40,13 @@ variable "master_service_account_id" {
 variable "docai_processor_location" {
   description = "The location of the Document AI processor."
   type        = string
-  default     = "us"
+  default     = "us-central1"
 }
 
 variable "docai_processor_id" {
   description = "The ID of the Document AI OCR Processor."
   type        = string
-  default     = "d64449d9cff40bf1" # Your specific processor ID
+  default     = "d64449d9cff40bf1"
 }
 
 # -----------------------------------------------------------------------------
