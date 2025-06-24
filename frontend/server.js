@@ -260,6 +260,60 @@ app.put('/api/prompts/:promptId', async (req, res) => {
       res.status(500).send({ message: 'Could not update prompt.' });
   }
 });
+app.delete('/api/sows/:docId', async (req, res) => {
+  const docId = req.params.docId;
+  console.log(`--- DELETE request received for document: ${docId} ---`);
+
+  try {
+    const docRef = firestore.collection('sows').doc(docId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).send({ message: 'Document not found, cannot delete.' });
+    }
+    const sowData = doc.data();
+
+    // 1. Delete the original PDF from the uploads bucket
+    if (sowData.original_filename) {
+      try {
+        await storage.bucket('sow-forge-texas-dmv-uploads').file(sowData.original_filename).delete();
+        console.log(`Deleted GCS object: sow-forge-texas-dmv-uploads/${sowData.original_filename}`);
+      } catch (gcsError) {
+        console.warn(`Could not delete original PDF (it may have been deleted already): ${gcsError.message}`);
+      }
+    }
+
+    // 2. Delete the processed text file
+    const txtFilename = `${docId}.txt`;
+    try {
+      await storage.bucket('sow-forge-texas-dmv-processed-text').file(txtFilename).delete();
+      console.log(`Deleted GCS object: sow-forge-texas-dmv-processed-text/${txtFilename}`);
+    } catch (gcsError) {
+      console.warn(`Could not delete processed text file: ${gcsError.message}`);
+    }
+    
+    // 3. Delete the batch output folder (if it exists)
+    if (sowData.processing_method === 'batch') {
+      try {
+        const [files] = await storage.bucket('sow-forge-texas-dmv-batch-output').getFiles({ prefix: `${docId}/` });
+        await Promise.all(files.map(file => file.delete()));
+        console.log(`Deleted batch output folder and contents for: ${docId}`);
+      } catch (gcsError) {
+        console.warn(`Could not delete batch output folder: ${gcsError.message}`);
+      }
+    }
+
+    // 4. Finally, delete the Firestore document
+    await docRef.delete();
+    console.log(`Deleted Firestore document: ${docId}`);
+
+    res.status(200).send({ message: 'Document and all associated files deleted successfully.' });
+
+  } catch (error) {
+    console.error('!!! Error during SOW deletion:', error.message);
+    res.status(500).send({ message: 'Could not complete deletion process.' });
+  }
+});
 
 // --- WILDCARD ROUTE (MUST BE THE VERY LAST ROUTE) ---
 app.get('*', (req, res) => {

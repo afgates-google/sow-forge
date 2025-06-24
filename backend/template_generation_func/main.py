@@ -13,7 +13,7 @@ def generate_template(request):
     """
     A powerful, single HTTP-triggered function that generates a new SOW template.
     """
-    print("Template Generation function triggered.")
+    print("Template Generation v2 function triggered.")
     
     db = firestore.Client()
     storage_client = storage.Client()

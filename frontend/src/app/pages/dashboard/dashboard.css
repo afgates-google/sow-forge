@@ -18,3 +18,26 @@
 .action-link { padding: 6px 12px; text-decoration: none; font-weight: 500; border-radius: 5px; }
 .action-link.view-btn { background-color: #6c757d; color: white; }
 .action-link.edit-sow { background-color: #007bff; color: white; }
+/* Add this styling for the delete button */
+.action-btn.delete-btn {
+    background-color: transparent;
+    border: none;
+    color: #6c757d;
+    padding: 6px;
+    line-height: 1;
+  }
+  
+  .action-btn.delete-btn:hover:not(:disabled) {
+    color: #dc3545; /* red */
+    background-color: #f8d7da;
+  }
+  
+  .action-btn.delete-btn svg {
+      width: 20px;
+      height: 20px;
+  }
+  
+  .action-btn.delete-btn:disabled {
+      color: #e0e0e0;
+      background-color: transparent;
+  }

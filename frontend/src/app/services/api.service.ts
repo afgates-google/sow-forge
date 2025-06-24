@@ -71,4 +71,8 @@ export class ApiService {
   createGoogleDoc(docId: string): Observable<{ doc_url: string }> {
     return this.http.post<{ doc_url: string }>(`${this.apiUrl}/create-google-doc`, { docId });
   }
+ 
+  deleteSow(sowId: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/sows/${sowId}`);
+  }
 }

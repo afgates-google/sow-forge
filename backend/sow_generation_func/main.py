@@ -85,13 +85,13 @@ def generate_sow(request):
         # --- 4. Format the fetched prompt template with the data ---
         project_name = f"{SOW_TITLE_PREFIX} {doc_id}"
         
-        prompt = prompt_template.format(
-            template_content=template_content,
-            analysis_data_json=json.dumps(analysis_data, indent=2),
-            original_filename=f"{doc_id}.pdf",
-            project_name_placeholder=project_name,
-            ai_review_tag=AI_REVIEW_TAG
-        )
+        prompt = prompt_template
+        
+        prompt = prompt.replace('{template_content}', template_content)
+        prompt = prompt.replace('{analysis_data_json}', json.dumps(analysis_data, indent=2))
+        prompt = prompt.replace('{original_filename}', f"{doc_id}.pdf")
+        prompt = prompt.replace('{project_name_placeholder}', project_name)
+        prompt = prompt.replace('{ai_review_tag}', AI_REVIEW_TAG)
 
         # --- 5. Call the AI model with the configured parameters ---
         generation_config = GenerationConfig(
