@@ -1,0 +1,46 @@
+<div class="status-container" *ngIf="project">
+    <h2>SOW Project: {{ project.projectName }}</h2>
+    <p><strong>Status:</strong> <span class="status-tag">{{ project.status }}</span></p>
+  
+    <h3>Source Documents</h3>
+    <p>Monitoring analysis progress. This page will auto-refresh.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Filename</th>
+          <th>Category</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let doc of project.sourceDocuments">
+          <td>{{ doc.originalFilename }}</td>
+          <td>{{ doc.category }}</td>
+          <td>
+            <span [ngClass]="doc.status.toLowerCase().replace('_', '-')">{{ doc.status }}</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  
+    <div class="generation-controls" *ngIf="isAnalysisComplete">
+      <h3>Generate Statement of Work</h3>
+      <div class="control-group">
+        <label for="template">Select SOW Template:</label>
+        <select id="template" [(ngModel)]="selectedTemplateId">
+          <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
+        </select>
+      </div>
+      <button (click)="triggerSowGeneration()" [disabled]="!selectedTemplateId || isGenerating">
+        {{ isGenerating ? 'Generating SOW...' : 'Generate SOW' }}
+      </button>
+    </div>
+  </div>
+  
+  <div *ngIf="!project && !errorMessage">
+    <p>Loading project details...</p>
+  </div>
+  
+  <div *ngIf="errorMessage">
+    <p class="error-message">Error: {{ errorMessage }}</p>
+  </div>

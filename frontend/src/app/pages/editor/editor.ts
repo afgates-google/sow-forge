@@ -1,66 +1,128 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterModule } from '@angular/router';
-import { MarkdownModule } from 'ngx-markdown';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ApiService } from '../../services/api.service';
+import { CommonModule } from '@angular/common'; // <-- IMPORT
+import { FormsModule } from '@angular/forms'; // <-- IMPORT
+
 @Component({
   selector: 'app-editor',
-  standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, MarkdownModule],
+  standalone: true, // <-- SET
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './editor.html',
   styleUrls: ['./editor.css']
 })
 export class EditorComponent implements OnInit {
-  sowDocument: any = null;
-  docId: string | null = null;
-  editableSowText = '';
-  isLoading = true;
+  // --- Component State ---
+  project: any = null;
+  projectId!: string;
+  
+  editableSowText: string = 'Loading SOW content...';
+  originalSowText: string = ''; // Used to track changes
+
   isSaving = false;
-  isCreatingDoc = false;
-  errorMessage = '';
-  saveStatusMessage = '';
-  activeTab: 'editor' | 'preview' = 'editor';
-  constructor(private route: ActivatedRoute, private apiService: ApiService) {}
+  isCreatingGDoc = false;
+  statusMessage: string = '';
+
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private apiService: ApiService // Assumes ApiService is updated
+  ) {}
+
   ngOnInit(): void {
-    this.docId = this.route.snapshot.paramMap.get('id');
-    if (this.docId) {
-      this.apiService.getAnalysisResults(this.docId).subscribe({
-        next: (data) => {
-          this.sowDocument = data;
-          this.editableSowText = data.generated_sow || 'SOW has not been generated for this document yet.';
-          this.isLoading = false;
-        },
-        error: (err) => { this.errorMessage = `Error fetching document: ${err.message}`; this.isLoading = false; }
-      });
-    } else {
-      this.errorMessage = 'No document ID provided in the URL.';
-      this.isLoading = false;
+    const id = this.route.snapshot.paramMap.get('id');
+    if (!id) {
+      // Handle error case where ID is missing
+      this.statusMessage = "Error: Project ID not found in URL.";
+      this.router.navigate(['/history']); // Redirect to history/dashboard
+      return;
     }
+    this.projectId = id;
+    this.loadSowContent();
   }
-  saveSow(): void {
-    if (!this.docId || !this.editableSowText) return;
-    this.isSaving = true;
-    this.saveStatusMessage = 'Saving...';
-    this.apiService.updateDocument(this.docId, { generated_sow: this.editableSowText }).subscribe({
-      next: () => { this.isSaving = false; this.saveStatusMessage = 'SOW saved successfully!'; setTimeout(() => this.saveStatusMessage = '', 3000); },
-      error: (err: any) => { this.isSaving = false; this.saveStatusMessage = `Error saving SOW: ${err.message}`; }
+
+  /**
+   * Fetches the project details and populates the editor.
+   */
+  loadSowContent(): void {
+    this.apiService.getProjectDetails(this.projectId).subscribe({
+      next: (data: any) => {
+        this.project = data;
+        this.editableSowText = data.generatedSowText || '# Statement of Work\n\n*No content has been generated for this project yet.*';
+        this.originalSowText = this.editableSowText;
+      },
+      error: (err: any) => {
+        this.statusMessage = `Error: Could not load project ${this.projectId}.`;
+        console.error(err);
+      }
     });
   }
-  openInGoogleDocs(): void {
-    if (!this.docId) return;
-    if (this.sowDocument && this.sowDocument.google_doc_url) { window.open(this.sowDocument.google_doc_url, '_blank'); return; }
-    this.isCreatingDoc = true;
-    this.saveStatusMessage = 'Creating Google Doc...';
-    this.apiService.createGoogleDoc(this.docId).subscribe({
-      next: (response: any) => {
-        this.isCreatingDoc = false;
-        this.saveStatusMessage = 'Document created successfully!';
-        this.sowDocument.google_doc_url = response.doc_url; 
-        window.open(response.doc_url, '_blank');
-        setTimeout(() => this.saveStatusMessage = '', 3000);
+
+  /**
+   * A getter to easily check if the SOW text has been modified.
+   * @returns {boolean} True if changes have been made.
+   */
+  get isDirty(): boolean {
+    return this.editableSowText !== this.originalSowText;
+  }
+
+  /**
+   * Saves the modified SOW text back to the project document in Firestore.
+   */
+  saveSow(): void {
+    if (!this.isDirty || this.isSaving) {
+      return;
+    }
+
+    this.isSaving = true;
+    this.statusMessage = "Saving...";
+
+    // Assume ApiService has an `updateProject` method
+    this.apiService.updateProject(this.projectId, { generatedSowText: this.editableSowText }).subscribe({
+      next: () => {
+        this.originalSowText = this.editableSowText; // Update the original text to the new saved version
+        this.statusMessage = `Saved successfully at ${new Date().toLocaleTimeString()}`;
+        setTimeout(() => this.statusMessage = '', 3000); // Clear message after 3 seconds
       },
-      error: (err: any) => { this.isCreatingDoc = false; this.saveStatusMessage = `Error creating document: ${err.message}`; }
+      error: (err: any) => {
+        this.statusMessage = "Save failed. Please try again.";
+        console.error("Failed to save SOW:", err);
+      },
+      complete: () => {
+        this.isSaving = false;
+      }
+    });
+  }
+
+  /**
+   * Triggers the backend function to create a Google Doc from the SOW text.
+   */
+  createGoogleDoc(): void {
+    if (this.isCreatingGDoc) {
+      return;
+    }
+
+    this.isCreatingGDoc = true;
+    this.statusMessage = "Creating Google Doc...";
+
+    // Assume ApiService has a `createGoogleDoc` method that now takes a projectId
+    this.apiService.createGoogleDoc(this.projectId).subscribe({
+      next: (response) => {
+        this.statusMessage = "Google Doc created successfully!";
+        // Update the local project object with the new URL to display it immediately
+        if (this.project) {
+          this.project.google_doc_url = response.doc_url;
+        }
+        window.open(response.doc_url, '_blank'); // Open the new doc in a new tab
+        setTimeout(() => this.statusMessage = '', 3000);
+      },
+      error: (err) => {
+        this.statusMessage = "Failed to create Google Doc.";
+        console.error("Failed to create Google Doc:", err);
+      },
+      complete: () => {
+        this.isCreatingGDoc = false;
+      }
     });
   }
 }

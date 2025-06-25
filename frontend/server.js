@@ -8,109 +8,257 @@ const { GoogleAuth } = require('google-auth-library');
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Define the absolute path to your key file for reliable authentication
-const KEY_FILE_PATH = path.join(__dirname, 'sa-key.json');
+// --- MODIFIED: Initialize clients without a key file.
+// They will use Application Default Credentials when running locally,
+// and the attached service account when deployed on Google Cloud.
+const firestore = new Firestore();
+const storage = new Storage();
+const auth = new GoogleAuth();
 
-// Initialize Google Cloud clients ONCE at the top.
-const firestore = new Firestore({ keyFilename: KEY_FILE_PATH });
-const storage = new Storage({ keyFilename: KEY_FILE_PATH });
-const auth = new GoogleAuth({ keyFilename: KEY_FILE_PATH });
+// --- NEW: Global variable to hold our settings ---
+let globalSettings = null;
 
-app.use(cors());
-app.use(express.json());
+/**
+ * Fetches the settings from Firestore at server startup.
+ */
+async function loadGlobalSettings() {
+  try {
+    const docRef = firestore.collection('settings').doc('global_config');
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      throw new Error("CRITICAL: 'global_config' document not found in 'settings' collection.");
+    }
+    globalSettings = doc.data();
+    console.log("✅ Global settings loaded successfully.");
+  } catch (error) {
+    console.error("❌ FAILED TO LOAD SETTINGS. Server cannot start.", error);
+    process.exit(1); // Exit if settings can't be loaded.
+  }
+}
 
-// Serve the static Angular app from the 'dist' folder
-// The folder name is based on the "name" in your package.json
-app.use(express.static(path.join(__dirname, 'dist/sow-forge-app/browser')));
+// --- CORE LOGIC ---
 
-// --- CORE API ROUTES ---
+async function startServer() {
+  // Load settings before starting the API
+  await loadGlobalSettings();
 
+  app.use(cors()); // Consider restricting this in production: app.use(cors({ origin: 'YOUR_FRONTEND_URL' }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.static(path.join(__dirname, 'dist/sow-forge-app/browser')));
+
+  // --- API Endpoints now using globalSettings ---
+
+  // --- SOW PROJECT ENDPOINTS ---
+
+  // Note: The endpoints below are now defined inside startServer()
+  // so they have access to the loaded globalSettings.
+
+/**
+ * Creates a new SOW Project and all its source document records.
+ * Returns the new project ID and a list of signed URLs for the frontend to upload files to.
+ */
+app.post('/api/projects', async (req, res) => {
+  try {
+    const { projectName, files } = req.body;
+    if (!projectName || !Array.isArray(files) || files.length === 0) {
+      return res.status(400).send({ message: 'Project name and a non-empty file list are required.' });
+    }
+
+    // 1. Create the main project document
+    const projectRef = firestore.collection('sow_projects').doc();
+    await projectRef.set({
+      projectName: projectName,
+      status: 'DRAFTING',
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    const projectId = projectRef.id;
+    console.log(`Created new SOW Project with ID: ${projectId}`);
+
+    // 2. Create source document records and generate signed URLs
+    const uploadInfo = await Promise.all(files.map(async (file) => {
+      const { filename, category, contentType } = file;
+      
+      // Create a document for this file in the sub-collection
+      const docRef = projectRef.collection('source_documents').doc();
+      await docRef.set({
+        originalFilename: filename,
+        category: category,
+        status: 'PENDING_UPLOAD',
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      const docId = docRef.id;
+
+      // Generate a signed URL for this specific file
+      const gcsFilename = `${projectId}/${docId}/${filename}`; // Use a structured path in GCS
+      const options = { version: 'v4', action: 'write', expires: Date.now() + 15 * 60 * 1000, contentType };
+      const [url] = await storage.bucket(globalSettings.gcs_uploads_bucket).file(gcsFilename).getSignedUrl(options);
+      
+      return { docId, signedUrl: url, filename };
+    }));
+
+    res.status(201).send({ projectId, uploadInfo });
+
+  } catch (error) {
+    console.error('!!! Error creating new SOW project:', error.message);
+    res.status(500).send({ message: 'Could not create new SOW project.' });
+  }
+});
+
+/**
+ * Fetches all SOW projects for the dashboard view.
+ */
+app.get('/api/projects', async (req, res) => {
+    try {
+        const snapshot = await firestore.collection('sow_projects').orderBy('createdAt', 'desc').get();
+        if (snapshot.empty) return res.status(200).send([]);
+        
+        const projects = snapshot.docs.map(doc => {
+            const data = doc.data();
+            if (data.createdAt && data.createdAt.toDate) {
+                data.createdAt = data.createdAt.toDate().toISOString();
+            }
+            return { id: doc.id, ...data };
+        });
+        res.status(200).send(projects);
+    } catch (error) {
+        console.error('!!! Error fetching SOW projects:', error.message);
+        res.status(500).send({ message: 'Could not fetch SOW projects.' });
+    }
+});
+
+/**
+ * Fetches details for a single SOW project, including all its source documents.
+ */
+app.get('/api/projects/:projectId', async (req, res) => {
+    try {
+        const projectId = req.params.projectId;
+        const projectRef = firestore.collection('sow_projects').doc(projectId);
+        
+        // Fetch the main project document
+        const projectDoc = await projectRef.get();
+        if (!projectDoc.exists) {
+            return res.status(404).send({ message: 'Project not found.' });
+        }
+        const projectData = projectDoc.data();
+
+        // Fetch all documents from the sub-collection
+        const sourceDocsSnapshot = await projectRef.collection('source_documents').orderBy('createdAt').get();
+        const sourceDocuments = sourceDocsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Combine and send the response
+        res.status(200).send({ ...projectData, id: projectDoc.id, sourceDocuments });
+
+    } catch (error) {
+        console.error(`!!! Error fetching project details for ${req.params.projectId}:`, error.message);
+        res.status(500).send({ message: 'Could not fetch project details.' });
+    }
+});
+
+// --- Add these to server.js ---
+
+/**
+ * Generic endpoint to update a SOW project document.
+ */
+app.put('/api/projects/:projectId', async (req, res) => {
+    try {
+        const docRef = firestore.collection('sow_projects').doc(req.params.projectId);
+        // Add a timestamp to every update for tracking
+        const updateData = { ...req.body, lastUpdatedAt: FieldValue.serverTimestamp() };
+        await docRef.update(updateData);
+        res.status(200).send({ message: 'Project updated successfully.' });
+    } catch (error) {
+        console.error(`!!! Error updating project ${req.params.projectId}:`, error.message);
+        res.status(500).send({ message: 'Could not update project.' });
+    }
+});
+
+/**
+ * Deletes a SOW project and all its associated files and sub-collection documents.
+ */
+app.delete('/api/projects/:projectId', async (req, res) => {
+    const projectId = req.params.projectId;
+    console.log(`--- DELETE request received for project: ${projectId} ---`);
+
+    try {
+        const projectRef = firestore.collection('sow_projects').doc(projectId);
+
+        // 1. Delete all files in the GCS project folders
+        const bucket = storage.bucket(globalSettings.gcs_uploads_bucket);
+        await bucket.deleteFiles({ prefix: `${projectId}/` });
+        console.log(`Deleted all GCS files in folder: ${projectId}/`);
+
+        await storage.bucket(globalSettings.gcs_processed_text_bucket).deleteFiles({ prefix: `${projectId}/` });
+        await storage.bucket(globalSettings.gcs_batch_output_bucket).deleteFiles({ prefix: `${projectId}/` });
+
+
+        // 2. Delete all documents in the sub-collection (requires a recursive helper)
+        const subcollectionRef = projectRef.collection('source_documents');
+        const subcollectionSnapshot = await subcollectionRef.get();
+        const batch = firestore.batch();
+        subcollectionSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        console.log(`Deleted all documents in 'source_documents' sub-collection for project ${projectId}.`);
+        
+        // 3. Finally, delete the main project document
+        await projectRef.delete();
+        console.log(`Deleted Firestore project document: ${projectId}`);
+
+        res.status(200).send({ message: 'Project and all associated files deleted successfully.' });
+
+    } catch (error) {
+        console.error('!!! Error during project deletion:', error.message, error.stack);
+        res.status(500).send({ message: 'Could not complete project deletion process.' });
+    }
+});
+
+// --- UTILITY ENDPOINTS ---
+
+/**
+ * Generates a signed URL for direct GCS uploads.
+ * Supports uploading to either the main SOW upload bucket or the template samples bucket.
+ */
 app.post('/api/generate-upload-url', async (req, res) => {
   try {
-    const { filename, contentType, targetBucket } = req.body;
-    if (!filename || !contentType) {
-      return res.status(400).send({ message: 'Filename and contentType are required.' });
+    const { filename, contentType, targetBucket, projectId, docId } = req.body;
+    if (!filename || !contentType || !targetBucket) {
+      return res.status(400).send({ message: 'filename, contentType, and targetBucket are required.' });
     }
-    const bucketName = targetBucket === 'templates' 
-      ? 'sow-forge-texas-dmv-template-samples' 
-      : 'sow-forge-texas-dmv-uploads';
     
+    let gcsPath;
+    let bucketName;
+
+    if (targetBucket === 'templates') {
+      bucketName = globalSettings.gcs_template_samples_bucket;
+      // For templates, the path is just the filename.
+      gcsPath = filename;
+    } else {
+      bucketName = globalSettings.gcs_uploads_bucket;
+      // For SOWs, we use the structured path.
+      if (!projectId || !docId) {
+        return res.status(400).send({ message: 'projectId and docId are required for SOW uploads.' });
+      }
+      gcsPath = `${projectId}/${docId}/${filename}`;
+    }
+    
+    console.log(`Generating signed URL for path "${gcsPath}" in bucket "${bucketName}"`);
+
     const options = { version: 'v4', action: 'write', expires: Date.now() + 15 * 60 * 1000, contentType };
-    const [url] = await storage.bucket(bucketName).file(filename).getSignedUrl(options);
-    res.status(200).send({ url });
+    const [url] = await storage.bucket(bucketName).file(gcsPath).getSignedUrl(options);
+    
+    // Return the GCS path so the frontend knows where the file will be.
+    res.status(200).send({ url, gcsPath });
+
   } catch (error) {
     console.error('!!! Error generating signed URL:', error.message);
     res.status(500).send({ message: 'Could not generate upload URL.' });
   }
 });
 
-// Endpoint for the Document Dashboard
-app.get('/api/sows', async (req, res) => {
-  try {
-    const snapshot = await firestore.collection('sows').orderBy('created_at', 'desc').get();
-    if (snapshot.empty) return res.status(200).send([]);
-    
-    const allSows = snapshot.docs.map(doc => {
-        const data = doc.data();
-        if (data.created_at && data.created_at.toDate) data.created_at = data.created_at.toDate().toISOString();
-        if (data.last_updated_at && data.last_updated_at.toDate) data.last_updated_at = data.last_updated_at.toDate().toISOString();
-        return { id: doc.id, ...data };
-    });
-
-    const filteredSows = allSows.filter(sow => sow.is_template_sample !== true);
-    res.status(200).send(filteredSows);
-  } catch (error) {
-    console.error('!!! Error fetching SOW documents:', error.message);
-    res.status(500).send({ message: 'Could not fetch SOW documents.' });
-  }
-});
-
-// Endpoint for a single SOW's results/details
-app.get('/api/results/:docId', async (req, res) => {
-  try {
-    const docRef = firestore.collection('sows').doc(req.params.docId);
-    const doc = await docRef.get();
-    if (!doc.exists) return res.status(404).send({ message: 'Document not found' });
-    res.status(200).send(doc.data());
-  } catch (error) {
-    console.error('!!! Error fetching Firestore document:', error.message);
-    res.status(500).send({ message: 'Could not fetch document.' });
-  }
-});
-
-// Generic endpoint to update a SOW document
-app.put('/api/sows/:docId', async (req, res) => {
-    try {
-        const docRef = firestore.collection('sows').doc(req.params.docId);
-        const updateData = { ...req.body, last_updated_at: FieldValue.serverTimestamp() };
-        await docRef.update(updateData);
-        res.status(200).send({ message: 'Document updated successfully.' });
-    } catch (error) {
-        console.error(`!!! Error updating document ${req.params.docId}:`, error.message);
-        res.status(500).send({ message: 'Could not update document.' });
-    }
-});
-
-// Endpoint to re-trigger the full analysis pipeline
-app.post('/api/regenerate/:docId', async (req, res) => {
-  try {
-    const docRef = firestore.collection('sows').doc(req.params.docId);
-    const doc = await docRef.get();
-    if (!doc.exists || !doc.data().original_filename) {
-      return res.status(404).send({ message: 'Original filename not found.' });
-    }
-    const file = storage.bucket('sow-forge-texas-dmv-uploads').file(doc.data().original_filename);
-    const [exists] = await file.exists();
-    if (!exists) return res.status(404).send({ message: `Original PDF file not found.` });
-    
-    await file.setMetadata({ metadata: { regenerated_at: new Date().toISOString() }});
-    await docRef.update({ status: 'REANALYSIS_IN_PROGRESS', last_updated_at: FieldValue.serverTimestamp() });
-    res.status(200).send({ message: 'Pipeline re-triggered successfully.' });
-  } catch (error) {
-    console.error('!!! Error re-triggering pipeline:', error.message);
-    res.status(500).send({ message: 'Could not re-trigger pipeline.' });
-  }
-});
+// NOTE: The rest of the endpoints (/templates, /prompts, /settings, and function proxies)
+// can remain largely the same for now. The /api/generate-sow proxy will need to be updated
+// in a later phase to pass a projectId instead of a docId.
 
 // --- TEMPLATE MANAGEMENT ENDPOINTS ---
 app.get('/api/templates', async (req, res) => {
@@ -131,7 +279,7 @@ app.get('/api/templates/:templateId', async (req, res) => {
     if (!doc.exists) return res.status(404).send({ message: 'Template metadata not found.' });
     const gcsPath = doc.data().gcs_path;
     if (!gcsPath) return res.status(404).send({ message: 'GCS path not found.' });
-    const file = storage.bucket('sow-forge-texas-dmv-templates').file(gcsPath);
+    const file = storage.bucket(globalSettings.gcs_templates_bucket).file(gcsPath);
     const [markdownContent] = await file.download();
     res.status(200).send({ metadata: { id: doc.id, ...doc.data() }, markdownContent: markdownContent.toString('utf8') });
   } catch (error) {
@@ -148,7 +296,7 @@ app.put('/api/templates/:templateId', async (req, res) => {
     const doc = await docRef.get();
     if (!doc.exists) return res.status(404).send({ message: 'Template metadata not found.' });
     const gcsPath = doc.data().gcs_path;
-    const file = storage.bucket('sow-forge-texas-dmv-templates').file(gcsPath);
+    const file = storage.bucket(globalSettings.gcs_templates_bucket).file(gcsPath);
     await file.save(markdownContent, { contentType: 'text/markdown' });
     res.status(200).send({ message: 'Template updated successfully.' });
   } catch (error) {
@@ -164,7 +312,7 @@ app.delete('/api/templates/:templateId', async (req, res) => {
     if (!doc.exists) return res.status(404).send({ message: 'Template not found.' });
     const gcsPath = doc.data().gcs_path;
     if (gcsPath) {
-      await storage.bucket('sow-forge-texas-dmv-templates').file(gcsPath).delete();
+      await storage.bucket(globalSettings.gcs_templates_bucket).file(gcsPath).delete();
     }
     await docRef.delete();
     res.status(200).send({ message: 'Template deleted successfully.' });
@@ -177,10 +325,12 @@ app.delete('/api/templates/:templateId', async (req, res) => {
 // --- FUNCTION PROXY ENDPOINTS ---
 app.post('/api/generate-sow', async (req, res) => {
   try {
-    const { docId, templateId } = req.body;
-    const functionUrl = 'https://sow-generation-func-zaolvsfwta-uc.a.run.app';
+    // --- MODIFIED: Expects projectId ---
+    const { projectId, templateId } = req.body;
+    const functionUrl = globalSettings.sow_generation_func_url;
     const client = await auth.getIdTokenClient(functionUrl);
-    const response = await client.request({ url: functionUrl, method: 'POST', data: { docId, templateId } });
+    // --- MODIFIED: Sends projectId ---
+    const response = await client.request({ url: functionUrl, method: 'POST', data: { projectId, templateId } });
     res.status(response.status).send(response.data);
   } catch (error) {
     console.error('!!! Error proxying to sow-generation-func:', error.response ? error.response.data : error.message);
@@ -190,13 +340,27 @@ app.post('/api/generate-sow', async (req, res) => {
 
 app.post('/api/generate-template', async (req, res) => {
   try {
-    const functionUrl = 'https://template-generation-func-zaolvsfwta-uc.a.run.app';
+    const functionUrl = globalSettings.template_generation_func_url;
     const client = await auth.getIdTokenClient(functionUrl);
     const response = await client.request({ url: functionUrl, method: 'POST', data: req.body });
     res.status(response.status).send(response.data);
   } catch (error) {
     console.error('!!! Error proxying to template-generation-func:', error.response ? error.response.data : error.message);
     res.status(500).send({ message: 'Could not proxy to template generation function.' });
+  }
+});
+
+// --- Also, update the create-google-doc proxy ---
+app.post('/api/create-google-doc', async (req, res) => {
+  try {
+    const { projectId } = req.body; // Expects projectId now
+    const functionUrl = globalSettings.create_google_doc_func_url;
+    const client = await auth.getIdTokenClient(functionUrl);
+    const response = await client.request({ url: functionUrl, method: 'POST', data: { projectId } }); // Pass projectId
+    res.status(response.status).send(response.data);
+  } catch (error) {
+    console.error('!!! Error proxying to create-google-doc:', error.response ? error.response.data : error.message);
+    res.status(500).send({ message: 'Could not proxy to Google Doc creation function.' });
   }
 });
 
@@ -260,66 +424,15 @@ app.put('/api/prompts/:promptId', async (req, res) => {
       res.status(500).send({ message: 'Could not update prompt.' });
   }
 });
-app.delete('/api/sows/:docId', async (req, res) => {
-  const docId = req.params.docId;
-  console.log(`--- DELETE request received for document: ${docId} ---`);
-
-  try {
-    const docRef = firestore.collection('sows').doc(docId);
-    const doc = await docRef.get();
-
-    if (!doc.exists) {
-      return res.status(404).send({ message: 'Document not found, cannot delete.' });
-    }
-    const sowData = doc.data();
-
-    // 1. Delete the original PDF from the uploads bucket
-    if (sowData.original_filename) {
-      try {
-        await storage.bucket('sow-forge-texas-dmv-uploads').file(sowData.original_filename).delete();
-        console.log(`Deleted GCS object: sow-forge-texas-dmv-uploads/${sowData.original_filename}`);
-      } catch (gcsError) {
-        console.warn(`Could not delete original PDF (it may have been deleted already): ${gcsError.message}`);
-      }
-    }
-
-    // 2. Delete the processed text file
-    const txtFilename = `${docId}.txt`;
-    try {
-      await storage.bucket('sow-forge-texas-dmv-processed-text').file(txtFilename).delete();
-      console.log(`Deleted GCS object: sow-forge-texas-dmv-processed-text/${txtFilename}`);
-    } catch (gcsError) {
-      console.warn(`Could not delete processed text file: ${gcsError.message}`);
-    }
-    
-    // 3. Delete the batch output folder (if it exists)
-    if (sowData.processing_method === 'batch') {
-      try {
-        const [files] = await storage.bucket('sow-forge-texas-dmv-batch-output').getFiles({ prefix: `${docId}/` });
-        await Promise.all(files.map(file => file.delete()));
-        console.log(`Deleted batch output folder and contents for: ${docId}`);
-      } catch (gcsError) {
-        console.warn(`Could not delete batch output folder: ${gcsError.message}`);
-      }
-    }
-
-    // 4. Finally, delete the Firestore document
-    await docRef.delete();
-    console.log(`Deleted Firestore document: ${docId}`);
-
-    res.status(200).send({ message: 'Document and all associated files deleted successfully.' });
-
-  } catch (error) {
-    console.error('!!! Error during SOW deletion:', error.message);
-    res.status(500).send({ message: 'Could not complete deletion process.' });
-  }
-});
 
 // --- WILDCARD ROUTE (MUST BE THE VERY LAST ROUTE) ---
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist/sow-forge-app/browser/index.html'));
 });
+  
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+  });
+}
 
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
+startServer();

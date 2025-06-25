@@ -1,45 +1,52 @@
 <div class="manager-container">
-  <h2>SOW Template Management</h2>
-  <div class="card create-template-card">
-    <h3>Create New Template from Samples</h3>
-    <p>Upload one or more sample SOWs (PDF, TXT, or MD). The AI will analyze them to create a reusable template.</p>
+  <h2>Template Manager</h2>
+
+  <!-- Section for creating a new template -->
+  <div class="new-template-section">
+    <h3>Create New Template</h3>
     <div class="form-group">
-      <label for="templateName">New Template Name</label>
-      <input id="templateName" type="text" [(ngModel)]="newTemplateName" placeholder="e.g., Standard IT Services Template">
+      <label for="templateName">Template Name</label>
+      <input id="templateName" type="text" [(ngModel)]="newTemplateName" placeholder="e.g., Standard Project SOW">
     </div>
     <div class="form-group">
       <label for="templateDesc">Description</label>
-      <textarea id="templateDesc" [(ngModel)]="newTemplateDescription" rows="3" placeholder="A brief description..."></textarea>
+      <textarea id="templateDesc" [(ngModel)]="newTemplateDescription" placeholder="A brief description of when to use this template."></textarea>
     </div>
     <div class="form-group">
-      <label>Sample SOW Files</label>
-      <input #fileInput type="file" (change)="onFilesSelected($event)" accept=".pdf,.txt,.md" multiple hidden>
-      <button (click)="fileInput.click()" class="browse-button">Browse for Files</button>
+      <label>Upload Sample Files (PDF, TXT)</label>
+      <input type="file" (change)="onFileSelected($event)" multiple>
+      <ul *ngIf="stagedFiles.length > 0" class="staged-files-list">
+        <li *ngFor="let file of stagedFiles; let i = index">
+          {{ file.name }} <button (click)="removeStagedFile(i)">×</button>
+        </li>
+      </ul>
     </div>
-    <div *ngIf="selectedFiles.length > 0" class="file-list">
-      <strong>Selected Samples:</strong>
-      <ul><li *ngFor="let file of selectedFiles">{{ file.name }}</li></ul>
-    </div>
-    <button class="action-btn" (click)="generateTemplate()" [disabled]="!newTemplateName || selectedFiles.length === 0 || isGenerating">
-      {{ isGenerating ? 'Generating...' : 'Generate AI Template' }}
+    <button (click)="createTemplate()" [disabled]="!newTemplateName || stagedFiles.length === 0 || isCreating">
+      {{ isCreating ? 'Creating...' : 'Create Template from Samples' }}
     </button>
-    <div *ngIf="statusMessage" class="status-message">{{ statusMessage }}</div>
   </div>
-  <div class="card existing-templates-card">
+
+  <!-- Section for listing existing templates -->
+  <div class="existing-templates-section">
     <h3>Existing Templates</h3>
-    <div *ngIf="isLoadingTemplates">Loading templates...</div>
-    <ul *ngIf="!isLoadingTemplates && existingTemplates.length > 0">
-      <li *ngFor="let template of existingTemplates">
-        <span class="template-info">
-          <strong>{{ template.name }}</strong>
-          <span>{{ template.description }}</span>
-        </span>
-        <span class="template-actions">
-          <a [routerLink]="['/templates', template.id, 'edit']" class="edit-btn">Edit</a>
-          <button (click)="deleteTemplate(template.id, template.name)" class="delete-btn">Delete</button>
-        </span>
-      </li>
-    </ul>
-    <p *ngIf="!isLoadingTemplates && existingTemplates.length === 0">No templates found.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let t of templates">
+          <td>{{ t.name }}</td>
+          <td>{{ t.description }}</td>
+          <td class="actions-cell">
+            <a [routerLink]="['/templates', t.id, 'edit']" class="action-btn">Edit</a>
+            <button (click)="deleteTemplate(t.id, t.name)" class="action-btn delete-btn">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </div>

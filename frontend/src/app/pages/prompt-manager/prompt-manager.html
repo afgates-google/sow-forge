@@ -1,22 +1,40 @@
-<div class="prompt-manager-container">
-  <h2>AI Prompt Management</h2>
-  <p>Edit the prompts used by the AI to generate analysis and content. Changes take effect immediately.</p>
-  <div class="card">
-    <div class="form-field">
+<div class="manager-container">
+  <h2>Prompt Management</h2>
+  <p>Select a prompt to view and edit its content. Changes are saved directly to Firestore.</p>
+
+  <div *ngIf="isLoadingList">
+    <p>Loading available prompts...</p>
+  </div>
+
+  <div *ngIf="!isLoadingList">
+    <!-- Prompt Selection Dropdown -->
+    <div class="form-group">
       <label for="prompt-select">Select a Prompt to Edit</label>
-      <div *ngIf="isLoadingList">Loading prompts...</div>
-      <select *ngIf="!isLoadingList" id="prompt-select" [(ngModel)]="selectedPromptId" (change)="onPromptSelected()">
-        <option value="">-- Choose a prompt --</option>
-        <option *ngFor="let p of prompts" [value]="p.id">{{ p.name }} ({{p.id}})</option>
+      <select id="prompt-select" [(ngModel)]="selectedPromptId" (change)="onPromptSelected()">
+        <option *ngFor="let prompt of prompts" [value]="prompt.id">
+          {{ prompt.name || prompt.id }}
+        </option>
       </select>
     </div>
-    <div *ngIf="selectedPromptId" class="form-field">
-      <label for="prompt-text">Prompt Text</label>
-      <div *ngIf="isLoadingPrompt" class="loading-prompt">Loading...</div>
-      <textarea *ngIf="!isLoadingPrompt" id="prompt-text" class="prompt-editor" [(ngModel)]="editablePromptText"></textarea>
+
+    <!-- Prompt Editor Textarea -->
+    <div class="form-group">
+      <label for="prompt-text">Prompt Content</label>
+      <div *ngIf="isLoadingPrompt" class="loading-prompt">Loading content...</div>
+      <textarea 
+        *ngIf="!isLoadingPrompt" 
+        id="prompt-text" 
+        class="prompt-editor" 
+        [(ngModel)]="editablePromptText"
+        placeholder="Select a prompt to see its content.">
+      </textarea>
     </div>
-    <div *ngIf="selectedPromptId" class="actions">
-      <button (click)="savePrompt()" [disabled]="isPristine() || isSaving">{{ isSaving ? 'Saving...' : 'Save Prompt' }}</button>
+
+    <!-- Action Bar -->
+    <div class="actions">
+      <button (click)="savePrompt()" [disabled]="isPristine() || isSaving">
+        {{ isSaving ? 'Saving...' : 'Save Changes' }}
+      </button>
       <span class="status-message">{{ statusMessage }}</span>
     </div>
   </div>

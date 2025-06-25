@@ -1,26 +1,39 @@
-import functions_framework
-from google.cloud import documentai, storage, firestore
-from PyPDF2 import PdfReader
 import os
+import PyPDF2
+import functions_framework
 import io
-# --- FIX #1: Import ClientOptions from the correct library ---
+import traceback # <-- FIX #1: Import the traceback module
+from google.cloud import firestore, storage, documentai
 from google.api_core.client_options import ClientOptions
 
 @functions_framework.cloud_event
 def process_pdf(cloud_event):
-    """
-    Acts as a router for incoming legislative bill PDFs.
-    """
-    # --- Initialize clients ---
-    storage_client = storage.Client()
+    data = cloud_event.data
+    bucket_name = data["bucket"]
+    file_name = data["name"]
+
+    print(f"--- Trigger received for: gs://{bucket_name}/{file_name} ---")
+
     db = firestore.Client()
+    storage_client = storage.Client()
     
-    file_name = "unknown_file" 
+    try:
+        path_parts = os.path.normpath(file_name).split(os.sep)
+        if len(path_parts) < 3:
+            raise ValueError(f"Path must contain at least 3 parts, but got {len(path_parts)}")
+        
+        project_id, doc_id, original_filename = path_parts[0], path_parts[1], os.path.join(*path_parts[2:])
+    except ValueError as e:
+        print(f"Ignoring file with unexpected path structure: {file_name}. Error: {e}")
+        return
+
+    doc_ref = db.collection('sow_projects').document(project_id).collection('source_documents').document(doc_id)
 
     try:
-        # --- 1. Fetch Global Settings from Firestore ---
         settings_ref = db.collection('settings').document('global_config')
         settings = settings_ref.get().to_dict()
+        if not settings:
+            raise ValueError("Global settings 'global_config' not found.")
 
         GCP_PROJECT_NUMBER = settings.get("gcp_project_number")
         DOCAI_PROCESSOR_ID = settings.get("docai_processor_id")
@@ -28,76 +41,41 @@ def process_pdf(cloud_event):
         SYNC_PAGE_LIMIT = int(settings.get("sync_page_limit", 15))
         OUTPUT_TEXT_BUCKET_NAME = settings.get("processed_text_bucket")
         BATCH_OUTPUT_BUCKET_NAME = settings.get("batch_output_bucket")
-        
-        if not all([GCP_PROJECT_NUMBER, DOCAI_PROCESSOR_ID, DOCAI_LOCATION]):
-            raise Exception("Required Document AI settings are missing from Firestore.")
 
-        # --- FIX #2: Correctly initialize the Document AI client ---
-        opts = ClientOptions(api_endpoint=f"{DOCAI_LOCATION}-documentai.googleapis.com")
-        docai_client = documentai.DocumentProcessorServiceClient(client_options=opts)
-        PROCESSOR_PATH = f"projects/{GCP_PROJECT_NUMBER}/locations/{DOCAI_LOCATION}/processors/{DOCAI_PROCESSOR_ID}"
-        print(f"Using configuration - Processor: {DOCAI_PROCESSOR_ID}")
+        # --- FIX #2: Use the correct client class name ---
+        client_options = ClientOptions(api_endpoint=f"{DOCAI_LOCATION}-documentai.googleapis.com")
+        docai_client = documentai.DocumentProcessorServiceClient(client_options=client_options)
+        
+        processor_name = docai_client.processor_path(GCP_PROJECT_NUMBER, DOCAI_LOCATION, DOCAI_PROCESSOR_ID)
 
-        # --- 3. Get Event Data ---
-        data = cloud_event.data
-        bucket_name = data["bucket"]
-        file_name = data["name"]
-        
-        source_bucket = storage_client.bucket(bucket_name)
-        blob = source_bucket.blob(file_name)
-        
-        # --- 4. Get Page Count ---
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(file_name)
         pdf_bytes = blob.download_as_bytes()
-        reader = PdfReader(io.BytesIO(pdf_bytes))
-        page_count = len(reader.pages)
-        print(f"Processing '{file_name}': Found {page_count} pages.")
+        page_count = len(PyPDF2.PdfReader(io.BytesIO(pdf_bytes)).pages)
+
+        print(f"Processing '{original_filename}' with {page_count} pages for project '{project_id}'.")
         
-        # --- 5. Create Firestore Record ---
-        doc_id = os.path.splitext(file_name)[0]
-        doc_ref = db.collection("sows").document(doc_id)
-        doc_ref.set({
-            "original_filename": file_name,
-            "display_name": file_name,
-            "status": "PROCESSING_OCR",
-            "page_count": page_count,
-            "created_at": firestore.SERVER_TIMESTAMP,
-            "last_updated_at": firestore.SERVER_TIMESTAMP,
-            "is_template_sample": False
-        }, merge=True)
-        print(f"Created initial SOW document with ID: {doc_id}")
+        doc_ref.update({"status": "PROCESSING_OCR", "page_count": page_count, "gcsPath": f"gs://{bucket_name}/{file_name}"})
 
-        # --- 6. Route to Sync or Batch Processing ---
         if page_count <= SYNC_PAGE_LIMIT:
-            print("Using synchronous processing.")
-            gcs_document = documentai.GcsDocument(gcs_uri=f"gs://{bucket_name}/{file_name}", mime_type="application/pdf")
-            request = documentai.ProcessRequest(name=PROCESSOR_PATH, gcs_document=gcs_document)
+            request = documentai.ProcessRequest(name=processor_name, raw_document=documentai.RawDocument(content=pdf_bytes, mime_type="application/pdf"))
             result = docai_client.process_document(request=request)
-            document_text = result.document.text
-
-            output_bucket = storage_client.bucket(OUTPUT_TEXT_BUCKET_NAME)
-            output_blob = output_bucket.blob(f"{doc_id}.txt")
-            output_blob.upload_from_string(document_text)
-            print(f"Sync processing complete. Saved text to '{output_blob.name}'.")
-
+            output_blob = storage_client.bucket(OUTPUT_TEXT_BUCKET_NAME).blob(f"{project_id}/{doc_id}.txt")
+            output_blob.upload_from_string(result.document.text)
+            doc_ref.update({"status": "TEXT_EXTRACTED", "processing_method": "sync", "last_updated_at": firestore.SERVER_TIMESTAMP})
+            print(f"Sync processing complete. Text saved.")
         else:
-            print("Using asynchronous batch processing.")
-            gcs_documents = documentai.GcsDocuments(documents=[documentai.GcsDocument(gcs_uri=f"gs://{bucket_name}/{file_name}", mime_type="application/pdf")])
-            input_config = documentai.BatchDocumentsInputConfig(gcs_documents=gcs_documents)
-            
-            output_config = documentai.DocumentOutputConfig(
-                gcs_output_config=documentai.DocumentOutputConfig.GcsOutputConfig(gcs_uri=f"gs://{BATCH_OUTPUT_BUCKET_NAME}/{doc_id}/")
-            )
-            request = documentai.BatchProcessRequest(
-                name=PROCESSOR_PATH,
-                input_documents=input_config,
-                document_output_config=output_config,
-            )
-            operation = docai_client.batch_process_documents(request=request)
-            print(f"Batch processing job started. Operation name: {operation.operation.name}")
-            
+            gcs_doc = documentai.GcsDocument(gcs_uri=f"gs://{bucket_name}/{file_name}", mime_type="application/pdf")
+            input_config = documentai.BatchDocumentsInputConfig(gcs_documents=documentai.GcsDocuments(documents=[gcs_doc]))
+            output_config = documentai.DocumentOutputConfig(gcs_output_config=documentai.DocumentOutputConfig.GcsOutputConfig(gcs_uri=f"gs://{BATCH_OUTPUT_BUCKET_NAME}/{project_id}/{doc_id}/"))
+            request = documentai.BatchProcessRequest(name=processor_name, input_documents=input_config, document_output_config=output_config)
+            docai_client.batch_process_documents(request)
+            doc_ref.update({"processing_method": "batch", "last_updated_at": firestore.SERVER_TIMESTAMP})
+            print(f"Batch processing job started for {original_filename}.")
+
     except Exception as e:
-        print(f"!!! CRITICAL ERROR in doc_preprocess_trigger for file '{file_name}': {e}")
-        if file_name != "unknown_file":
-            doc_id_for_error = os.path.splitext(file_name)[0]
-            doc_ref = db.collection("sows").document(doc_id_for_error)
-            doc_ref.set({"status": "OCR_FAILED", "error_message": str(e)}, merge=True)
+        error_message = f"!!! CRITICAL ERROR in process_pdf for '{file_name}': {e}"
+        print(error_message)
+        tb_str = traceback.format_exc()
+        print(tb_str)
+        doc_ref.update({"status": "OCR_FAILED", "error_message": str(e), "error_traceback": tb_str})

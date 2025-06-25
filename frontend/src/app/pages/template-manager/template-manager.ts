@@ -1,11 +1,11 @@
 import { Component, OnInit } from '@angular/core';
+import { Router, RouterModule } from '@angular/router';
+import { ApiService } from '../../services/api.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
-import { ApiService } from '../../services/api.service';
-import { forkJoin, of } from 'rxjs';
-import { catchError, switchMap, map, filter } from 'rxjs/operators';
-import { HttpEventType } from '@angular/common/http';
+import { forkJoin } from 'rxjs';
+import { switchMap, map } from 'rxjs/operators';
+
 @Component({
   selector: 'app-template-manager',
   standalone: true,
@@ -14,17 +14,94 @@ import { HttpEventType } from '@angular/common/http';
   styleUrls: ['./template-manager.css']
 })
 export class TemplateManagerComponent implements OnInit {
+  templates: any[] = [];
+  
+  // State for new template creation
   newTemplateName = '';
   newTemplateDescription = '';
-  selectedFiles: File[] = [];
-  isGenerating = false;
-  statusMessage = '';
-  existingTemplates: any[] = [];
-  isLoadingTemplates = true;
-  constructor(private apiService: ApiService) {}
-  ngOnInit(): void { this.loadTemplates(); }
-  loadTemplates(): void { this.isLoadingTemplates = true; this.apiService.getTemplates().subscribe({ next: (data) => { this.existingTemplates = data; this.isLoadingTemplates = false; }, error: (err) => { console.error('Failed to load templates', err); this.isLoadingTemplates = false; } }); }
-  onFilesSelected(event: any): void { if (event.target.files) { this.selectedFiles = Array.from(event.target.files); } }
-  deleteTemplate(templateId: string, templateName: string): void { if (confirm(`Are you sure you want to delete "${templateName}"?`)) { this.apiService.deleteTemplate(templateId).subscribe({ next: () => { this.statusMessage = `Template deleted.`; this.loadTemplates(); }, error: (err: any) => { this.statusMessage = `Error: ${err.message}`; } }); } }
-  generateTemplate(): void { if (!this.newTemplateName || this.selectedFiles.length === 0) return; this.isGenerating = true; this.statusMessage = `Uploading ${this.selectedFiles.length} sample(s)...`; const uploadObs = this.selectedFiles.map(file => this.apiService.getUploadUrl(file.name, file.type, 'templates').pipe(switchMap(res => this.apiService.uploadFile(res.url, file)), filter(event => event.type === HttpEventType.Response), map(() => file.name))); forkJoin(uploadObs).pipe(catchError(err => { this.statusMessage = 'Error during upload.'; this.isGenerating = false; return of(null); })).subscribe(filenames => { if (filenames) { this.statusMessage = 'Triggering AI template generation...'; this.apiService.createTemplateFromSamples(this.newTemplateName, this.newTemplateDescription, filenames).subscribe({ next: () => { this.statusMessage = 'Template generated successfully!'; this.isGenerating = false; setTimeout(() => { this.newTemplateName = ''; this.newTemplateDescription = ''; this.selectedFiles = []; this.statusMessage = ''; this.loadTemplates(); }, 2000); }, error: (err: any) => { this.statusMessage = `AI generation failed: ${err.message}`; this.isGenerating = false; } }); } }); }
+  stagedFiles: File[] = [];
+  isCreating = false;
+
+  constructor(private apiService: ApiService, private router: Router) { }
+
+  ngOnInit(): void {
+    this.loadTemplates();
+  }
+
+  loadTemplates(): void {
+    this.apiService.getTemplates().subscribe(data => {
+      this.templates = data;
+    });
+  }
+
+  deleteTemplate(templateId: string, templateName: string): void {
+    if (confirm(`Are you sure you want to delete the template "${templateName}"?`)) {
+      this.apiService.deleteTemplate(templateId).subscribe(() => {
+        this.loadTemplates(); // Refresh the list
+      });
+    }
+  }
+
+  // --- New Template Creation Logic ---
+  
+  onFileSelected(event: Event): void {
+    const files = (event.target as HTMLInputElement).files;
+    if (files) {
+      this.stagedFiles.push(...Array.from(files));
+    }
+  }
+
+  removeStagedFile(index: number): void {
+    this.stagedFiles.splice(index, 1);
+  }
+
+  createTemplate(): void {
+    if (!this.newTemplateName || this.stagedFiles.length === 0 || this.isCreating) {
+      return;
+    }
+    this.isCreating = true;
+
+    // Step 1: Get signed URLs for all staged files
+    const uploadObservables = this.stagedFiles.map(file => 
+      this.apiService.getUploadUrl(file.name, file.type, 'templates')
+    );
+
+    forkJoin(uploadObservables).pipe(
+      // Step 2: Upload the files to GCS
+      switchMap((responses: any[]) => {
+        const uploadPromises = responses.map((res, index) => 
+          fetch(res.url, { method: 'PUT', body: this.stagedFiles[index] })
+        );
+        // We also need the GCS paths for the next step
+        const gcsPaths = responses.map(res => res.gcsPath);
+        return Promise.all(uploadPromises).then(() => gcsPaths); // Pass paths to the next step
+      }),
+      // Step 3: Trigger the backend template generation function
+      switchMap((gcsPaths: string[]) => {
+        return this.apiService.createTemplateFromSamples(
+          this.newTemplateName, 
+          this.newTemplateDescription, 
+          gcsPaths
+        );
+      })
+    ).subscribe({
+      next: (result) => {
+        alert(`Template "${this.newTemplateName}" created successfully!`);
+        this.isCreating = false;
+        this.resetForm();
+        this.loadTemplates();
+      },
+      error: (err) => {
+        alert('Failed to create template. Please check the console.');
+        console.error(err);
+        this.isCreating = false;
+      }
+    });
+  }
+
+  resetForm(): void {
+    this.newTemplateName = '';
+    this.newTemplateDescription = '';
+    this.stagedFiles = [];
+  }
 }

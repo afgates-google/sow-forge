@@ -1,111 +1,150 @@
 .manager-container {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
-.card h3 {
-  margin-top: 0;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 0.75rem;
+
+h2 {
+  color: #1a202c;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+h3 {
+  color: #2d3748;
+  margin-bottom: 1rem;
+}
+
+/* --- New Template Section --- */
+.new-template-section {
+  background-color: #ffffff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  margin-bottom: 3rem;
+}
+
+.form-group {
   margin-bottom: 1.5rem;
 }
-.form-group {
-  margin-bottom: 1rem;
-  text-align: left;
-}
+
 .form-group label {
   display: block;
-  font-weight: 500;
+  font-weight: 600;
+  color: #2d3748;
   margin-bottom: 0.5rem;
 }
+
 .form-group input[type="text"],
 .form-group textarea {
   width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-.browse-button {
-  background-color: #f0f0f0;
-  border: 1px solid #ccc;
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.file-list {
-  text-align: left;
-  margin-top: 1rem;
-  font-size: 0.9rem;
-  background-color: #f8f9fa;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-}
-.file-list ul {
-  margin: 0.5rem 0 0 0;
-  padding-left: 1rem;
-}
-.action-btn {
-  width: 100%;
-  padding: 0.8rem 1rem;
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: white;
-  background-color: #007bff;
-  border: none;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e0;
   border-radius: 6px;
-  cursor: pointer;
-  margin-top: 1.5rem;
+  font-size: 1rem;
+  box-sizing: border-box; /* Ensures padding doesn't affect width */
 }
-.action-btn:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
+
+.form-group textarea {
+  min-height: 80px;
+  resize: vertical;
 }
-.status-message {
-  margin-top: 1rem;
-  font-style: italic;
-  color: #333;
-}
-.existing-templates-card ul {
-  list-style-type: none;
+
+.staged-files-list {
+  list-style: none;
   padding: 0;
+  margin-top: 1rem;
 }
-.existing-templates-card li {
+
+.staged-files-list li {
+  background-color: #f7fafc;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid #eee;
 }
-.existing-templates-card li:last-child {
-  border-bottom: none;
+
+.staged-files-list button {
+  background: none;
+  border: none;
+  color: #c53030;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 1.2rem;
 }
-.template-info span {
-  display: block;
-  font-size: 0.9em;
-  color: #6c757d;
-  margin-top: 0.25rem;
+
+.new-template-section button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: #4299e1;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
 }
-.template-actions {
+
+.new-template-section button:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
+}
+
+
+/* --- Existing Templates Section --- */
+.existing-templates-section table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background-color: #f7fafc;
+}
+
+th, td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+th {
+  font-weight: 600;
+  color: #4a5568;
+}
+
+td {
+  color: #2d3748;
+}
+
+.actions-cell {
   display: flex;
   gap: 0.5rem;
 }
-.edit-btn, .delete-btn {
+
+.action-btn {
+  padding: 0.3rem 0.8rem;
   text-decoration: none;
-  padding: 5px 12px;
   border-radius: 4px;
-  font-size: 14px;
+  border: 1px solid #cbd5e0;
+  background-color: #fff;
+  color: #2d3748;
   cursor: pointer;
-  border: 1px solid transparent;
+  font-size: 0.9rem;
 }
-.edit-btn {
-  background-color: #e9ecef;
-  color: #212529;
-  border-color: #dee2e6;
+
+.action-btn:hover {
+  background-color: #edf2f7;
 }
+
 .delete-btn {
-  background-color: #f8d7da;
-  color: #721c24;
-  border-color: #f5c6cb;
+  color: #c53030;
+  border-color: #fed7d7;
+}
+
+.delete-btn:hover {
+  background-color: #fff5f5;
 }

@@ -1,31 +1,31 @@
-<div class="editor-container">
+<div class="editor-container" *ngIf="project">
   <div class="editor-header">
-    <a routerLink="/history" class="back-button">← Back to Dashboard</a>
-    <h2 *ngIf="sowDocument">Editing SOW for: {{ sowDocument.original_filename }}</h2>
-    <div class="actions">
-      <button (click)="saveSow()" [disabled]="isSaving" class="save-button">
-        {{ isSaving ? 'Saving...' : 'Save SOW' }}
+    <h2>Editing: {{ project.projectName }}</h2>
+    <div class="editor-actions">
+      <span class="status-message">{{ statusMessage }}</span>
+      <a *ngIf="project.google_doc_url" [href]="project.google_doc_url" target="_blank" class="gdoc-link">View Google Doc</a>
+      <button (click)="createGoogleDoc()" [disabled]="isCreatingGDoc">
+        {{ isCreatingGDoc ? 'Creating...' : 'Create Google Doc' }}
       </button>
-      <button (click)="openInGoogleDocs()" [disabled]="isCreatingDoc" class="gdocs-button">
-        {{ (sowDocument && sowDocument.google_doc_url) ? 'Open in Google Docs' : 'Create Google Doc' }}
+      <button (click)="saveSow()" [disabled]="!isDirty || isSaving">
+        {{ isSaving ? 'Saving...' : 'Save Changes' }}
       </button>
-      <span class="save-status">{{ saveStatusMessage }}</span>
     </div>
   </div>
-  <div *ngIf="sowDocument" class="editor-body">
-    <div class="tab-nav">
-      <button (click)="activeTab = 'editor'" [class.active]="activeTab === 'editor'">Editor</button>
-      <button (click)="activeTab = 'preview'" [class.active]="activeTab === 'preview'">Preview</button>
-    </div>
-    <div class="tab-content">
-      <div *ngIf="activeTab === 'editor'" class="editor-pane">
-        <textarea class="sow-editor" [(ngModel)]="editableSowText"></textarea>
-      </div>
-      <div *ngIf="activeTab === 'preview'" class="preview-pane">
-        <markdown class="sow-preview" [data]="editableSowText"></markdown>
-      </div>
+
+  <div class="editor-content">
+    <!-- This assumes you are using ngx-markdown or a similar library -->
+    <!-- A simple textarea is used here for demonstration -->
+    <textarea class="markdown-editor" [(ngModel)]="editableSowText"></textarea>
+    
+    <div class="markdown-preview">
+      <!-- To display the rendered markdown, you would use a component like ngx-markdown -->
+      <!-- <markdown [data]="editableSowText"></markdown> -->
+      <pre>{{ editableSowText }}</pre> <!-- Simple preview -->
     </div>
   </div>
-  <div *ngIf="isLoading"><p>Loading SOW document...</p></div>
-  <div *ngIf="errorMessage"><p class="error">{{ errorMessage }}</p></div>
+</div>
+
+<div *ngIf="!project">
+  <p>Loading editor...</p>
 </div>

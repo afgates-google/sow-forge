@@ -1,44 +1,60 @@
-<div class="creator-card">
-  <div class="card-header">
-    <h2>Create a New SOW from a Legislative Bill</h2>
-    <p>Start by uploading a PDF document. The system will do the rest.</p>
+<div class="upload-container">
+  <h2>Create a New Statement of Work</h2>
+  
+  <!-- Staging Area Input -->
+  <div class="project-name-input">
+    <label for="projectName">SOW Project Name:</label>
+    <input type="text" id="projectName" [(ngModel)]="projectName" placeholder="e.g., Q1 Security Upgrades">
   </div>
 
-  <div *ngIf="!selectedFile"
-       class="drop-zone"
-       (click)="fileInput.click()"
-       (dragover)="onDragOver($event)"
-       (dragleave)="onDragLeave($event)"
+  <!-- File Drop Zone -->
+  <div class="drop-zone" 
+       (dragover)="onDragOver($event)" 
+       (dragleave)="onDragLeave($event)" 
        (drop)="onDrop($event)">
-    <input #fileInput type="file" (change)="onFileSelected($event)" accept=".pdf" hidden>
-    
-    <div class="drop-zone-prompt">
-      <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h5l5 5v7a4 4 0 01-4 4H7z" />
-      </svg>
-      <p><strong>Drag & Drop your PDF here</strong></p>
-      <p class="browse-text">or click to browse</p>
-    </div>
+    <p>Drag & Drop Your Source Files Here (PDF, TXT, MD)</p>
+    <p>or</p>
+    <input type="file" (change)="onFileSelected($event)" multiple hidden #fileInput>
+    <button (click)="fileInput.click()">Select Files</button>
   </div>
 
-  <div *ngIf="selectedFile" class="file-info-container">
-    <div class="file-details">
-      <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-      <span>{{ selectedFile.name }}</span>
-      <button (click)="removeFile()" class="remove-file-btn" title="Remove file">×</button>
-    </div>
-
-    <button class="action-btn" (click)="uploadFile()" [disabled]="isUploading || isPolling">
-      <span *ngIf="!isUploading && !isPolling">Analyze & Generate SOW</span>
-      <span *ngIf="isUploading">Uploading...</span>
-      <span *ngIf="isPolling">Analysis in Progress...</span>
+  <!-- Staged Files List -->
+  <div class="staged-files" *ngIf="stagedFiles.length > 0">
+    <h3>Staged Documents</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Filename</th>
+          <th>Category</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of stagedFiles; let i = index">
+          <td>{{ item.file.name }}</td>
+          <td>
+            <select [(ngModel)]="item.category">
+              <option *ngFor="let cat of documentCategories" [value]="cat">{{ cat }}</option>
+            </select>
+          </td>
+          <td>
+            <span [ngClass]="item.status.toLowerCase().replace('_', '-')">{{ item.status }}</span>
+          </td>
+          <td>
+            <button class="remove-btn" (click)="removeStagedFile(i)">Remove</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- Main Action Button -->
+  <div class="actions">
+    <button class="create-btn" 
+            (click)="createSowProject()" 
+            [disabled]="stagedFiles.length === 0 || !projectName || isCreating">
+      {{ isCreating ? 'Creating Project...' : 'Create SOW Project' }}
     </button>
-
-    <div *ngIf="uploadProgress > 0 || isPolling" class="progress-container">
-      <div class="progress-bar"><div class="progress" [style.width.%]="uploadProgress"></div></div>
-      <p class="status-message">{{ statusMessage }}</p>
-    </div>
   </div>
 </div>

@@ -1,73 +1,23 @@
 <div class="settings-container">
   <h2>Application Settings</h2>
-  <p>Control the AI models, prompts, and other parameters used by the system.</p>
-  
-  <div *ngIf="isLoading"><p>Loading settings...</p></div>
+  <p>Modify global settings that control the backend AI processes.</p>
 
-  <div *ngIf="!isLoading" class="settings-form card">
-    <div class="setting-group">
-      <h4>Legislative Analysis Configuration</h4>
-      <div class="form-field">
-        <label for="leg-model">AI Model</label>
-        <select id="leg-model" [(ngModel)]="settings.legislative_analysis_model">
-          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-          <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
-          <option value="text-bison@002">Text Bison (Legacy)</option>
-        </select>
-      </div>
-      <div class="form-field">
-        <label for="leg-prompt">Analysis Prompt</label>
-        <select id="leg-prompt" [(ngModel)]="settings.legislative_analysis_prompt_id">
-          <option *ngFor="let p of prompts" [value]="p.id">{{ p.name }}</option>
-        </select>
+  <form *ngIf="settings" (ngSubmit)="saveSettings()">
+    <div class="form-grid">
+      <!-- MODIFIED: Call the formatLabel method -->
+      <div class="form-group" *ngFor="let key of objectKeys(settings)">
+        <label [for]="key">{{ formatLabel(key) | titlecase }}</label>
+        <input type="text" [id]="key" [name]="key" [(ngModel)]="settings[key]">
       </div>
     </div>
-    <div class="setting-group">
-      <h4>SOW Generation Configuration</h4>
-      <div class="form-field">
-        <label for="sow-model">AI Model</label>
-        <select id="sow-model" [(ngModel)]="settings.sow_generation_model">
-          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-          <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
-          <option value="text-bison@002">Text Bison (Legacy)</option>
-        </select>
-      </div>
-      <div class="form-field">
-        <label for="sow-prompt">Generation Prompt</label>
-        <select id="sow-prompt" [(ngModel)]="settings.sow_generation_prompt_id">
-          <option *ngFor="let p of prompts" [value]="p.id">{{ p.name }}</option>
-        </select>
-      </div>
-    </div>
-    <div class="setting-group">
-      <h4>AI Behavior & Tuning</h4>
-      <div class="form-field">
-        <label for="analysis-temp">Analysis Temperature (0.0 - 1.0)</label>
-        <input id="analysis-temp" type="number" step="0.1" min="0" max="1" [(ngModel)]="settings.analysis_model_temperature">
-      </div>
-      <div class="form-field">
-        <label for="sow-gen-temp">SOW Generation Temperature (0.0 - 1.0)</label>
-        <input id="sow-gen-temp" type="number" step="0.1" min="0" max="1" [(ngModel)]="settings.sow_generation_model_temperature">
-      </div>
-      <div class="form-field">
-        <label for="max-tokens">Max Output Tokens (SOW Generation)</label>
-        <input id="max-tokens" type="number" step="256" min="256" [(ngModel)]="settings.sow_generation_max_tokens">
-      </div>
-    </div>
-    <div class="setting-group">
-      <h4>Operational Settings</h4>
-      <div class="form-field">
-        <label for="page-limit">Synchronous Page Limit</label>
-        <input id="page-limit" type="number" [(ngModel)]="settings.sync_page_limit">
-      </div>
-      <div class="form-field">
-        <label for="docai-id">Document AI Processor ID</label>
-        <input id="docai-id" type="text" [(ngModel)]="settings.docai_processor_id">
-      </div>
-    </div>
+    
     <div class="actions">
-      <button (click)="saveSettings()" [disabled]="isSaving">{{ isSaving ? 'Saving...' : 'Save All Settings' }}</button>
+      <button type="submit">Save Settings</button>
       <span class="status-message">{{ statusMessage }}</span>
     </div>
+  </form>
+
+  <div *ngIf="!settings">
+    <p>Loading settings...</p>
   </div>
 </div>

@@ -1,0 +1,163 @@
+.status-container {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  
+  h2 {
+    color: #1a202c;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  h3 {
+    color: #2d3748;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    color: #4a5568;
+    line-height: 1.6;
+  }
+  
+  /* Main status tag at the top of the page */
+  .status-tag {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    background-color: #e2e8f0;
+    color: #4a5568;
+    font-size: 0.9rem;
+  }
+  
+  /* --- Table Styles --- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1.5rem;
+  }
+  
+  thead {
+    background-color: #f7fafc;
+  }
+  
+  th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+  }
+  
+  th {
+    font-weight: 600;
+    color: #4a5568;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+  }
+  
+  td {
+    color: #2d3748;
+  }
+  
+  /* --- Status Span Styles within the Table --- */
+  td span {
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  
+  /* Success States (Green) */
+  .analyzed-success {
+    background-color: #c6f6d5;
+    color: #22543d;
+  }
+  
+  /* In-Progress States (Blue) */
+  .analyzing, .processing-ocr {
+    background-color: #bee3f8;
+    color: #2c5282;
+  }
+  
+  /* Failure States (Red) */
+  .analysis-failed, .ocr-failed {
+    background-color: #fed7d7;
+    color: #822727;
+  }
+  
+  /* Neutral/Pending States (Gray) */
+  .pending-upload {
+    background-color: #e2e8f0;
+    color: #4a5568;
+  }
+  
+  
+  /* --- SOW Generation Controls --- */
+  .generation-controls {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+  }
+  
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .control-group label {
+    font-weight: 600;
+    color: #2d3748;
+  }
+  
+  .control-group select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    background-color: #fff;
+    font-size: 1rem;
+    flex-grow: 1;
+  }
+  
+  .generation-controls button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+    background-color: #4299e1;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .generation-controls button:hover {
+    background-color: #2b6cb0;
+  }
+  
+  .generation-controls button:disabled {
+    background-color: #a0aec0;
+    cursor: not-allowed;
+  }
+  
+  /* --- General Helper Styles --- */
+  .error-message {
+    color: #c53030;
+    font-weight: 600;
+    background-color: #fff5f5;
+    padding: 1rem;
+    border: 1px solid #fed7d7;
+    border-radius: 6px;
+  }

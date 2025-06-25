@@ -1,5 +1,6 @@
-functions-framework==3.*
-google-cloud-aiplatform==1.56.0
-google-cloud-storage==2.*
-google-cloud-firestore==2.*
-google-auth==2.23.4
+functions-framework==3.8.0
+# Let pip find the correct, compatible versions for Google libraries
+google-cloud-aiplatform
+google-cloud-storage
+google-cloud-firestore
+google-auth
