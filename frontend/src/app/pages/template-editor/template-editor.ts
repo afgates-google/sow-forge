@@ -3,11 +3,12 @@ import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MarkdownModule } from 'ngx-markdown'; // <-- IMPORT
 
 @Component({
   selector: 'app-template-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MarkdownModule], // <-- ADD MarkdownModule
   templateUrl: './template-editor.html',
   styleUrls: ['./template-editor.css']
 })
@@ -16,6 +17,8 @@ export class TemplateEditorComponent implements OnInit {
   templateDoc: any = null;
   editableContent = '';
   statusMessage = '';
+  
+  activeTab: 'write' | 'preview' = 'write'; // <-- NEW property for tabs
 
   constructor(private route: ActivatedRoute, private apiService: ApiService) { }
 

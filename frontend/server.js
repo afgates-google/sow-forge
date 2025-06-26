@@ -26,7 +26,7 @@ async function loadGlobalSettings() {
     const docRef = firestore.collection('settings').doc('global_config');
     const doc = await docRef.get();
     if (!doc.exists) {
-      throw new Error("CRITICAL: 'global_config' document not found in 'settings' collection.");
+      throw new Error("CRITICAL: 'global_config' document not found.");
     }
     globalSettings = doc.data();
     console.log("✅ Global settings loaded successfully.");
@@ -151,6 +151,69 @@ app.get('/api/projects/:projectId', async (req, res) => {
     } catch (error) {
         console.error(`!!! Error fetching project details for ${req.params.projectId}:`, error.message);
         res.status(500).send({ message: 'Could not fetch project details.' });
+    }
+});
+
+/**
+ * Fetches the details for a single source document within a project.
+ */
+app.get('/api/projects/:projectId/documents/:docId', async (req, res) => {
+  try {
+      const { projectId, docId } = req.params;
+      const docRef = firestore.collection('sow_projects').doc(projectId).collection('source_documents').doc(docId);
+
+      const doc = await docRef.get();
+      if (!doc.exists) {
+          return res.status(404).json({ message: 'Source document not found.' });
+      }
+
+      // Use res.json() to guarantee correct content-type header
+      res.status(200).json({ id: doc.id, ...doc.data() });
+
+  } catch (error) {
+      console.error(`!!! Error fetching source document ${req.params.docId}:`, error.message);
+      res.status(500).json({ message: 'Could not fetch source document details.' });
+  }
+});
+
+/**
+ * Triggers a re-analysis of a specific source document.
+ */
+app.post('/api/projects/:projectId/documents/:docId/regenerate', async (req, res) => {
+    try {
+        const { projectId, docId } = req.params;
+        const docRef = firestore.collection('sow_projects').doc(projectId).collection('source_documents').doc(docId);
+        
+        // 1. Update the status in Firestore to give immediate feedback in the UI
+        await docRef.update({
+            status: 'RE_ANALYZING',
+            lastUpdatedAt: FieldValue.serverTimestamp()
+        });
+        console.log(`Set status to RE_ANALYZING for doc: ${docId}`);
+
+        // 2. "Touch" the GCS file by updating its metadata. This will re-trigger
+        //    the legislative_analysis_func Cloud Function if it's configured for metadata updates.
+        const txtFilename = `${projectId}/${docId}.txt`;
+        const file = storage.bucket(globalSettings.gcs_processed_text_bucket).file(txtFilename);
+        
+        const [exists] = await file.exists();
+        if (!exists) {
+            return res.status(404).json({ message: 'Processed text file not found. Cannot regenerate.' });
+        }
+
+        await file.setMetadata({
+            metadata: {
+                // Add a timestamp to ensure the metadata actually changes
+                regenerated_at: new Date().toISOString()
+            }
+        });
+        
+        console.log(`Triggered re-analysis for GCS file: ${txtFilename}`);
+        res.status(200).json({ message: 'Re-analysis triggered successfully.' });
+
+    } catch (error) {
+        console.error(`!!! Error triggering re-analysis for doc ${req.params.docId}:`, error.message);
+        res.status(500).json({ message: 'Could not trigger re-analysis.' });
     }
 });
 

@@ -24,3 +24,22 @@ hr {
 button, .btn, .action-link {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
+
+/* Add this to the bottom of src/styles.css */
+
+/* This is our new, shared container class */
+.app-container {
+  width: 100%;
+  max-width: 1000px; /* Matches the max-width of your dashboard for consistency */
+  margin: 0 auto;    /* Centers the container horizontally */
+  padding: 0 1.5rem;   /* Adds some space on the left and right */
+  box-sizing: border-box;
+}
+
+/* Basic body styles for a clean starting point */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #f7fafc; /* A light grey background for the whole page */
+  color: #2d3748;
+}

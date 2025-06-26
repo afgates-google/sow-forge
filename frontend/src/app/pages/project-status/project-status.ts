@@ -1,16 +1,16 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ApiService } from '../../services/api.service';
-import { Subscription, timer, switchMap, takeWhile } from 'rxjs';
-import { CommonModule } from '@angular/common'; // <-- IMPORT
-import { FormsModule } from '@angular/forms'; // <-- IMPORT
+import { Subscription, timer, switchMap, takeWhile, tap } from 'rxjs'; // Import tap
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-project-status',
-  standalone: true, // <-- SET
-  imports: [CommonModule, FormsModule],
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './project-status.html',
-  styleUrls: ['./project-status.css'] // You can create a basic CSS file for this
+  styleUrls: ['./project-status.css']
 })
 export class ProjectStatusComponent implements OnInit, OnDestroy {
   project: any = null;
@@ -20,6 +20,8 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
   isGenerating = false;
   errorMessage: string | null = null;
   
+  isLoading = true; // <-- CRITICAL FIX: Added this missing property
+
   private pollingSubscription?: Subscription;
   private projectId!: string;
 
@@ -33,6 +35,7 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
     this.projectId = this.route.snapshot.paramMap.get('id')!;
     if (!this.projectId) {
       this.errorMessage = "Project ID is missing from the URL.";
+      this.isLoading = false;
       return;
     }
 
@@ -41,18 +44,22 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
   }
 
   startPolling() {
-    this.pollingSubscription = timer(0, 5000) // Poll every 5 seconds
+    this.pollingSubscription = timer(0, 5000)
       .pipe(
+        // Set loading state at the beginning of each poll for the initial load
+        tap(() => { if (this.isLoading) console.log("Fetching project details..."); }),
         switchMap(() => this.apiService.getProjectDetails(this.projectId)),
         takeWhile(() => !this.isAnalysisComplete, true)
       )
       .subscribe({
         next: (data) => {
           this.project = data;
+          this.isLoading = false; // <-- CRITICAL FIX: Set loading to false after data arrives
           this.checkAnalysisStatus();
         },
         error: (err) => {
           this.errorMessage = "Could not fetch project details.";
+          this.isLoading = false; // <-- CRITICAL FIX: Also set loading to false on error
           this.pollingSubscription?.unsubscribe();
         }
       });
@@ -87,13 +94,32 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
     this.apiService.generateSow(this.projectId, this.selectedTemplateId).subscribe({
       next: (generatedSow) => {
         this.isGenerating = false;
-        // Generation successful, navigate to the editor page
         this.router.navigate(['/projects', this.projectId, 'editor']);
       },
       error: (err) => {
         this.isGenerating = false;
         alert('SOW Generation Failed. Please check the console for details.');
         console.error(err);
+      }
+    });
+  }
+
+  // --- ADD THIS NEW METHOD ---
+  regenerateAnalysis(document: any): void {
+    // Prevent multiple clicks by setting a temporary state on the document object
+    document.isRegenerating = true;
+
+    this.apiService.regenerateAnalysis(this.projectId, document.id).subscribe({
+      next: () => {
+        // The backend has confirmed the trigger. Update the status locally for
+        // instant UI feedback. The polling will handle the rest.
+        document.status = 'RE_ANALYZING';
+        document.isRegenerating = false; // Re-enable button in case of another retry
+      },
+      error: (err) => {
+        alert(`Failed to trigger regeneration for "${document.originalFilename}". Please check the console.`);
+        console.error(err);
+        document.isRegenerating = false; // Re-enable button on error
       }
     });
   }

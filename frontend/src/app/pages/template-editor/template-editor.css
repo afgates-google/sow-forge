@@ -63,3 +63,63 @@
     resize: none;
     outline: none;
   }
+  /* Add these new styles to the BOTTOM of your existing CSS file */
+
+.tab-nav {
+  display: flex;
+  background-color: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+  padding-left: 1.5rem;
+  flex-shrink: 0;
+}
+
+.tab-button {
+  padding: 0.75rem 1.25rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #718096;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-button.active {
+  color: #2b6cb0;
+  border-bottom-color: #2b6cb0;
+}
+
+.tab-button:hover {
+  color: #2d3748;
+}
+
+.editor-content {
+  flex-grow: 1;
+  display: flex; /* Make it a flex container to manage children */
+}
+
+/* Ensure the editor and preview take up the full space */
+.markdown-editor, .markdown-preview {
+  width: 100%;
+  height: 100%;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.markdown-preview {
+  /* Add styling for rendered markdown content */
+  line-height: 1.7;
+}
+
+.markdown-preview h1, .markdown-preview h2, .markdown-preview h3 {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.3em;
+}
+
+.markdown-preview code {
+  background-color: #edf2f7;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}

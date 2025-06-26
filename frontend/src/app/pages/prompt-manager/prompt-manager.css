@@ -1,10 +1,5 @@
-.manager-container {
-  max-width: 900px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+/* Using the consistent .page-container and .content-card pattern */
+.page-container {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -20,6 +15,13 @@ p {
   margin-bottom: 2rem;
 }
 
+.content-card {
+  background-color: #ffffff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
 .form-group {
   margin-bottom: 1.5rem;
 }
@@ -31,39 +33,67 @@ p {
   margin-bottom: 0.5rem;
 }
 
-/* Consistent styling for both select and textarea */
-.form-group select,
-.prompt-editor {
+.form-group select {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #cbd5e0;
   border-radius: 6px;
   font-size: 1rem;
+}
+
+/* Tab and Editor styles from previous steps */
+.tab-nav {
+  display: flex;
+  background-color: #fdfdfd;
+  border: 1px solid #cbd5e0;
+  border-bottom: none;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.tab-button {
+  padding: 0.75rem 1.25rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #718096;
+  border-bottom: 3px solid transparent;
+}
+
+.tab-button.active {
+  color: #2b6cb0;
+  border-bottom-color: #2b6cb0;
+}
+
+.editor-content {
+  display: flex;
+  height: 450px;
+  border: 1px solid #cbd5e0;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
+.prompt-editor, .markdown-preview, .loading-prompt {
+  width: 100%;
+  height: 100%;
+  padding: 1.5rem;
   box-sizing: border-box;
-  color: #2d3748;
-  background-color: #fff;
+  overflow-y: auto;
 }
 
 .prompt-editor {
-  min-height: 450px;
+  border: none;
+  resize: none;
+  outline: none;
   font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  line-height: 1.6;
-  resize: vertical;
-}
-
-.loading-prompt {
-  min-height: 450px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #718096;
-  background-color: #f7fafc;
-  border: 1px dashed #e2e8f0;
-  border-radius: 6px;
+  font-size: 1rem;
 }
 
 .actions {
-  margin-top: 1rem;
+  margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid #e2e8f0;
   display: flex;
@@ -80,7 +110,6 @@ p {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s;
 }
 
 .actions button:disabled {

@@ -42,6 +42,21 @@ export class ApiService {
     return this.http.post('/api/generate-sow', { projectId, templateId }, { responseType: 'text' });
   }
 
+  getSourceDocumentDetails(projectId: string, docId: string): Observable<any> {
+    return this.http.get<any>(`/api/projects/${projectId}/documents/${docId}`);
+  }
+
+  /**
+   * Triggers the re-analysis pipeline for a single source document.
+   * @param projectId The ID of the parent project.
+   * @param docId The ID of the source document to regenerate.
+   */
+  regenerateAnalysis(projectId: string, docId: string): Observable<any> {
+    return this.http.post(`/api/projects/${projectId}/documents/${docId}/regenerate`, {});
+  }
+  // --- Google Doc Management ---
+
+
   createGoogleDoc(projectId: string): Observable<any> {
     // This endpoint must be updated on the backend to accept a projectId
     return this.http.post('/api/create-google-doc', { projectId });

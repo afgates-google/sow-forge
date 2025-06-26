@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------
-# Function #1: Document Pre-processing (Main Pipeline)
+# Function #1: Document Pre-processing (Correct)
 # ------------------------------------------------------------------
 resource "google_cloudfunctions2_function" "doc_preprocess_trigger" {
   project  = var.gcp_project_id
@@ -7,7 +7,7 @@ resource "google_cloudfunctions2_function" "doc_preprocess_trigger" {
   location = var.gcp_region
 
   build_config {
-    runtime     = "python310"
+    runtime     = "python312"
     entry_point = "process_pdf"
     source {
       storage_source {
@@ -22,11 +22,6 @@ resource "google_cloudfunctions2_function" "doc_preprocess_trigger" {
     available_memory      = "512Mi"
     timeout_seconds       = 540
     service_account_email = google_service_account.master_sa.email
-    environment_variables = {
-      GCP_PROJECT_NUMBER = data.google_project.project.number
-      DOCAI_PROCESSOR_ID = var.docai_processor_id
-      DOCAI_LOCATION     = var.docai_processor_location
-    }
   }
 
   event_trigger {
@@ -42,7 +37,8 @@ resource "google_cloudfunctions2_function" "doc_preprocess_trigger" {
 }
 
 # ------------------------------------------------------------------
-# Function #2: Legislative Analysis (Main Pipeline)
+# Function #2: Legislative Analysis (Corrected)
+# We define the function with its PRIMARY trigger (file creation).
 # ------------------------------------------------------------------
 resource "google_cloudfunctions2_function" "legislative_analysis_func" {
   project  = var.gcp_project_id
@@ -50,7 +46,7 @@ resource "google_cloudfunctions2_function" "legislative_analysis_func" {
   location = var.gcp_region
 
   build_config {
-    runtime     = "python310"
+    runtime     = "python312"
     entry_point = "analyze_text"
     source {
       storage_source {
@@ -67,6 +63,7 @@ resource "google_cloudfunctions2_function" "legislative_analysis_func" {
     service_account_email = google_service_account.master_sa.email
   }
 
+  # --- CRITICAL FIX: Re-add the primary event trigger ---
   event_trigger {
     trigger_region        = var.gcs_location
     event_type            = "google.cloud.storage.object.v1.finalized"
@@ -77,6 +74,32 @@ resource "google_cloudfunctions2_function" "legislative_analysis_func" {
       value     = google_storage_bucket.app_buckets["processed_text"].name
     }
   }
+}
+
+# --- This separate trigger now ONLY handles the regeneration event ---
+resource "google_eventarc_trigger" "analysis_regeneration_trigger" {
+  project  = var.gcp_project_id
+  name     = "analysis-regeneration-trigger"
+  location = var.gcp_region
+
+  destination {
+    cloud_run_service {
+      service = google_cloudfunctions2_function.legislative_analysis_func.name
+      region  = var.gcp_region
+    }
+  }
+
+  matching_criteria {
+    attribute = "type"
+    value     = "google.cloud.storage.object.v1.metadataUpdate" # The regeneration event
+  }
+  
+  matching_criteria {
+    attribute = "bucket"
+    value     = google_storage_bucket.app_buckets["processed_text"].name
+  }
+
+  service_account = google_service_account.master_sa.email
 }
 
 # ------------------------------------------------------------------

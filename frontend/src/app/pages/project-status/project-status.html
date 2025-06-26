@@ -1,46 +1,70 @@
-<div class="status-container" *ngIf="project">
-    <h2>SOW Project: {{ project.projectName }}</h2>
-    <p><strong>Status:</strong> <span class="status-tag">{{ project.status }}</span></p>
-  
-    <h3>Source Documents</h3>
-    <p>Monitoring analysis progress. This page will auto-refresh.</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Filename</th>
-          <th>Category</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let doc of project.sourceDocuments">
-          <td>{{ doc.originalFilename }}</td>
-          <td>{{ doc.category }}</td>
-          <td>
-            <span [ngClass]="doc.status.toLowerCase().replace('_', '-')">{{ doc.status }}</span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  
-    <div class="generation-controls" *ngIf="isAnalysisComplete">
-      <h3>Generate Statement of Work</h3>
-      <div class="control-group">
-        <label for="template">Select SOW Template:</label>
-        <select id="template" [(ngModel)]="selectedTemplateId">
-          <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
-        </select>
-      </div>
-      <button (click)="triggerSowGeneration()" [disabled]="!selectedTemplateId || isGenerating">
-        {{ isGenerating ? 'Generating SOW...' : 'Generate SOW' }}
-      </button>
-    </div>
-  </div>
-  
-  <div *ngIf="!project && !errorMessage">
+<div class="page-container">
+  <div *ngIf="isLoading" class="loading-indicator">
     <p>Loading project details...</p>
   </div>
-  
-  <div *ngIf="errorMessage">
-    <p class="error-message">Error: {{ errorMessage }}</p>
+
+  <div *ngIf="errorMessage" class="error-message">
+    <p>{{ errorMessage }}</p>
   </div>
+
+  <div *ngIf="!isLoading && project">
+    <h2>SOW Project: {{ project.projectName }}</h2>
+    <p class="project-subtitle">
+      <strong>Overall Status:</strong>
+      <span class="status-tag" [ngClass]="project.status.toLowerCase().replace('_', '-')">{{ project.status }}</span>
+    </p>
+
+    <div class="content-card">
+      <h3>Source Documents</h3>
+      <p class="info-text">Monitoring analysis progress. This page will auto-refresh every 5 seconds.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Filename</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let doc of project.sourceDocuments">
+            <td>{{ doc.originalFilename }}</td>
+            <td>{{ doc.category }}</td>
+            <td>
+              <span class="status-tag" [ngClass]="doc.status.toLowerCase().replace('_', '-')">{{ doc.status }}</span>
+            </td>
+            <td class="actions-cell">
+              <a *ngIf="doc.status === 'ANALYZED_SUCCESS'"
+                 [routerLink]="['/projects', project.id, 'documents', doc.id]"
+                 class="action-btn">
+                View Analysis
+              </a>
+              <button
+                *ngIf="doc.status === 'ANALYZED_SUCCESS' || doc.status === 'ANALYSIS_FAILED'"
+                (click)="regenerateAnalysis(doc)"
+                [disabled]="doc.isRegenerating"
+                class="action-btn regenerate-btn">
+                {{ doc.isRegenerating ? 'Regenerating...' : 'Regenerate' }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- SOW Generation Controls -->
+      <div *ngIf="isAnalysisComplete" class="generation-controls">
+        <h3>Generate Statement of Work</h3>
+        <div class="control-group">
+          <label for="template">Select SOW Template:</label>
+          <select id="template" [(ngModel)]="selectedTemplateId">
+            <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
+          </select>
+        </div>
+        <button class="primary-action-btn" (click)="triggerSowGeneration()" [disabled]="!selectedTemplateId || isGenerating">
+          {{ isGenerating ? 'Generating SOW...' : 'Generate SOW' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

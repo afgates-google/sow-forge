@@ -1,42 +1,45 @@
-<div class="dashboard-container">
+<div class="page-container">
   <h2>SOW Projects History</h2>
+  <p>View, manage, and track the status of all course. That's the perfect final touch to complete the UI consistency. We your past and in-progress SOW projects.</p>
 
-  <div *ngIf="projects.length === 0 && !isLoading" class="no-projects">
-    <p>You haven't created any SOW projects yet.</p>
-    <a routerLink="/">Create a New SOW Project</a>
+  <div *ngIf="isLoading" class="loading-indicator">
+    <p>Loading projects...</p>
   </div>
 
-  <table *ngIf="projects.length > 0">
-    <thead>
-      <tr>
-        <th>Project Name</th>
-        <th>Status</th>
-        <th>Created On</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let project of projects">
-        <td>
-          <a [routerLink]="['/projects', project.id]">{{ project.projectName }}</a>
-        </td>
-        <td>
-          <span [ngClass]="project.status.toLowerCase().replace('_', '-')">{{ project.status }}</span>
-        </td>
-        <td>{{ project.createdAt | date:'short' }}</td>
-        <td class="actions-cell">
-          <button class="action-btn" (click)="viewProject(project.id, project.status)">
-            {{ project.status === 'SOW_GENERATED' ? 'View SOW' : 'View Status' }}
-          </button>
-          <button class="action-btn delete-btn" (click)="deleteProject(project.id, project.projectName)">
-            Delete
-          </button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  <div *ngIf="!isLoading && projects.length === 0" class="no-content-card">
+    <p>You haven't created any SOW projects yet.</p>
+    <a routerLink="/" class="primary-action-btn">Create a New SOW Project</a>
+  </div>
 
-  <div *ngIf="isLoading">
-    <p>Loading projects...</p>
+  <div *ngIf="!isLoading && projects.length > 0" class="content-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Project Name</th>
+          <th>Status</th>
+          <th>Created On</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let project of projects">
+          <td>
+            <a [routerLink]="['/projects', project.id]" class="project-link">{{ project.projectName }}</a>
+          </td>
+          <td>
+            <span class="status-tag" [ngClass]="project.status.toLowerCase().replace('_', '-')">{{ project.status }}</span>
+          </td>
+          <td>{{ project.createdAt | date:'short' }}</td>
+          <td class="actions-cell">
+            <button class="action-btn" (click)="viewProject(project.id, project.status)">
+              {{ project.status === 'SOW_GENERATED' ? 'View SOW' : 'View Status' }}
+            </button>
+            <button class="action-btn delete-btn" (click)="deleteProject(project.id, project.projectName)">
+              Delete
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </div>

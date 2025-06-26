@@ -1,0 +1,42 @@
+<div class="results-container">
+    <div *ngIf="isLoading">
+      <p>Loading analysis results...</p>
+    </div>
+  
+    <div *ngIf="errorMessage" class="error-message">
+      <p>{{ errorMessage }}</p>
+    </div>
+  
+    <div *ngIf="!isLoading && document">
+      <h2>Analysis for: {{ document.originalFilename }}</h2>
+      <p class="metadata"><strong>Category:</strong> {{ document.category }} | <strong>Status:</strong> {{ document.status }}</p>
+  
+      <div class="summary-section">
+        <h3>AI Summary</h3>
+        <p>{{ document.analysis?.summary || 'No summary was generated.' }}</p>
+      </div>
+  
+      <div class="requirements-section">
+        <h3>Extracted Requirements</h3>
+        <table *ngIf="document.analysis?.requirements?.length > 0; else noRequirements">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Description</th>
+              <th>Category</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let req of document.analysis.requirements">
+              <td>{{ req.id }}</td>
+              <td>{{ req.description }}</td>
+              <td>{{ req.category }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <ng-template #noRequirements>
+          <p>No specific requirements were extracted from this document.</p>
+        </ng-template>
+      </div>
+    </div>
+  </div>

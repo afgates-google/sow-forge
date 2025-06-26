@@ -7,6 +7,7 @@ import { TemplateManagerComponent } from './pages/template-manager/template-mana
 import { TemplateEditorComponent } from './pages/template-editor/template-editor';
 import { PromptManagerComponent } from './pages/prompt-manager/prompt-manager';
 import { SettingsComponent } from './pages/settings/settings';
+import { AnalysisResultsComponent } from './pages/analysis-results/analysis-results';
 
 // --- Simplified routes to only include the refactored project workflow ---
 export const routes: Routes = [
@@ -18,6 +19,11 @@ export const routes: Routes = [
   { path: 'templates/:id/edit', component: TemplateEditorComponent, title: 'SOW-Forge - Edit Template' },
   { path: 'prompts', component: PromptManagerComponent, title: 'SOW-Forge - Prompts' },
   { path: 'settings', component: SettingsComponent, title: 'SOW-Forge - Settings' },
+  { 
+    path: 'projects/:projectId/documents/:docId', 
+    component: AnalysisResultsComponent, 
+    title: 'SOW-Forge - Analysis Results' 
+  },
 
   // Add a fallback route
   { path: '**', redirectTo: '', pathMatch: 'full' }

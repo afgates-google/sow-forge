@@ -1,163 +1,190 @@
-.status-container {
-    max-width: 900px;
-    margin: 2rem auto;
-    padding: 2rem;
-    background-color: #ffffff;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+.page-container {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+h2 {
+  color: #1a202c;
+  margin-bottom: 0.25rem;
+}
+
+.project-subtitle {
+  color: #4a5568;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 1rem;
+}
+
+.content-card {
+  background-color: #ffffff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+h3 {
+  color: #2d3748;
+  margin: 0 0 0.5rem 0;
+}
+
+.info-text {
+  color: #718096;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+/* --- Table Styles (Consistent with Dashboard) --- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #edf2f7;
+  vertical-align: middle;
+}
+
+thead th {
+  font-weight: 600;
+  color: #4a5568;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  background-color: #f7fafc;
+}
+
+/* --- Status Tag Styles (Consistent with Dashboard) --- */
+.status-tag {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.sow_generated, .analyzed_success, .analysis_complete { background-color: #c6f6d5; color: #22543d; }
+.analyzing, .processing_ocr, .drafting { background-color: #bee3f8; color: #2c5282; }
+.analysis_failed, .ocr_failed { background-color: #fed7d7; color: #822727; }
+.pending_upload { background-color: #e2e8f0; color: #4a5568; }
+
+
+/* --- Actions Styles (Consistent with Dashboard) --- */
+.actions-cell {
+  text-align: right;
+}
+
+.action-btn {
+  padding: 0.3rem 0.8rem;
+  text-decoration: none;
+  border-radius: 4px;
+  border: 1px solid #cbd5e0;
+  background-color: #fff;
+  color: #2d3748;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.action-btn:hover {
+  background-color: #edf2f7;
+}
+
+/* --- Generation Controls (Consistent with Forms) --- */
+.generation-controls {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.control-group {
+  margin-bottom: 1.5rem;
+}
+
+.control-group label {
+  display: block;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+}
+
+.control-group select {
+  width: 100%;
+  max-width: 500px;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.primary-action-btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: #4299e1;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.primary-action-btn:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
+}
+
+/* --- General Helper Styles --- */
+.loading-indicator, .error-message {
+  text-align: center;
+  padding: 3rem;
+  color: #718096;
+}
+
+.error-message {
+  color: #c53030;
+  background-color: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 8px;
+}
+.re_analyzing {
+  background-color: #bee3f8; /* Same as other 'in-progress' states */
+  color: #2c5282;
+}
+/* Style for the new status tag */
+.re_analyzing {
+  background-color: #bee3f8; /* Same as other 'in-progress' states */
+  color: #2c5282;
+  animation: pulse 1.5s infinite;
+}
+
+/* Style for the regenerate button */
+.regenerate-btn {
+  color: #dd6b20; /* An orange/amber color to stand out */
+  border-color: #feebc8;
+}
+
+.regenerate-btn:hover {
+  background-color: #fefcbf;
+}
+
+.regenerate-btn:disabled {
+  color: #a0aec0;
+  border-color: #e2e8f0;
+  background-color: #f7fafc;
+  cursor: not-allowed;
+}
+
+/* A simple pulse animation for the re-analyzing status */
+@keyframes pulse {
+  0% {
+    opacity: 1;
   }
-  
-  h2 {
-    color: #1a202c;
-    border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 0.5rem;
-    margin-bottom: 1rem;
+  50% {
+    opacity: 0.6;
   }
-  
-  h3 {
-    color: #2d3748;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
+  100% {
+    opacity: 1;
   }
-  
-  p {
-    color: #4a5568;
-    line-height: 1.6;
-  }
-  
-  /* Main status tag at the top of the page */
-  .status-tag {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    font-weight: 600;
-    border-radius: 9999px;
-    background-color: #e2e8f0;
-    color: #4a5568;
-    font-size: 0.9rem;
-  }
-  
-  /* --- Table Styles --- */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1.5rem;
-  }
-  
-  thead {
-    background-color: #f7fafc;
-  }
-  
-  th, td {
-    padding: 0.75rem 1rem;
-    text-align: left;
-    border-bottom: 1px solid #e2e8f0;
-    vertical-align: middle;
-  }
-  
-  th {
-    font-weight: 600;
-    color: #4a5568;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-  }
-  
-  td {
-    color: #2d3748;
-  }
-  
-  /* --- Status Span Styles within the Table --- */
-  td span {
-    padding: 0.2rem 0.6rem;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-  }
-  
-  /* Success States (Green) */
-  .analyzed-success {
-    background-color: #c6f6d5;
-    color: #22543d;
-  }
-  
-  /* In-Progress States (Blue) */
-  .analyzing, .processing-ocr {
-    background-color: #bee3f8;
-    color: #2c5282;
-  }
-  
-  /* Failure States (Red) */
-  .analysis-failed, .ocr-failed {
-    background-color: #fed7d7;
-    color: #822727;
-  }
-  
-  /* Neutral/Pending States (Gray) */
-  .pending-upload {
-    background-color: #e2e8f0;
-    color: #4a5568;
-  }
-  
-  
-  /* --- SOW Generation Controls --- */
-  .generation-controls {
-    margin-top: 2.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e2e8f0;
-  }
-  
-  .control-group {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-  
-  .control-group label {
-    font-weight: 600;
-    color: #2d3748;
-  }
-  
-  .control-group select {
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #cbd5e0;
-    border-radius: 6px;
-    background-color: #fff;
-    font-size: 1rem;
-    flex-grow: 1;
-  }
-  
-  .generation-controls button {
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-    font-weight: 600;
-    color: #fff;
-    background-color: #4299e1;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-  
-  .generation-controls button:hover {
-    background-color: #2b6cb0;
-  }
-  
-  .generation-controls button:disabled {
-    background-color: #a0aec0;
-    cursor: not-allowed;
-  }
-  
-  /* --- General Helper Styles --- */
-  .error-message {
-    color: #c53030;
-    font-weight: 600;
-    background-color: #fff5f5;
-    padding: 1rem;
-    border: 1px solid #fed7d7;
-    border-radius: 6px;
-  }
+}

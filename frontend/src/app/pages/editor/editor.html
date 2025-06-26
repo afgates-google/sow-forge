@@ -1,6 +1,6 @@
 <div class="editor-container" *ngIf="project">
   <div class="editor-header">
-    <h2>Editing: {{ project.projectName }}</h2>
+    <h2>Editing SOW: {{ project.projectName }}</h2>
     <div class="editor-actions">
       <span class="status-message">{{ statusMessage }}</span>
       <a *ngIf="project.google_doc_url" [href]="project.google_doc_url" target="_blank" class="gdoc-link">View Google Doc</a>
@@ -13,19 +13,30 @@
     </div>
   </div>
 
+  <!-- NEW: Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-button" [class.active]="activeTab === 'write'" (click)="activeTab = 'write'">
+      Write
+    </button>
+    <button class="tab-button" [class.active]="activeTab === 'preview'" (click)="activeTab = 'preview'">
+      Preview
+    </button>
+  </div>
+
+  <!-- NEW: Tabbed Editor Content -->
   <div class="editor-content">
-    <!-- This assumes you are using ngx-markdown or a similar library -->
-    <!-- A simple textarea is used here for demonstration -->
-    <textarea class="markdown-editor" [(ngModel)]="editableSowText"></textarea>
+    <textarea 
+      *ngIf="activeTab === 'write'"
+      class="markdown-editor" 
+      [(ngModel)]="editableSowText">
+    </textarea>
     
-    <div class="markdown-preview">
-      <!-- To display the rendered markdown, you would use a component like ngx-markdown -->
-      <!-- <markdown [data]="editableSowText"></markdown> -->
-      <pre>{{ editableSowText }}</pre> <!-- Simple preview -->
+    <div *ngIf="activeTab === 'preview'" class="markdown-preview">
+      <markdown [data]="editableSowText"></markdown>
     </div>
   </div>
 </div>
 
-<div *ngIf="!project">
-  <p>Loading editor...</p>
+<div *ngIf="!project" class="loading-container">
+  <p>Loading SOW content...</p>
 </div>

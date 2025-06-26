@@ -2,11 +2,13 @@ import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MarkdownModule } from 'ngx-markdown'; // <-- IMPORT
 
 @Component({
   selector: 'app-prompt-manager',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MarkdownModule], // <-- ADD MarkdownModule
+  // Note: The template URL was changed in the provided snippet, ensure it matches your actual file name.
   templateUrl: './prompt-manager.html',
   styleUrls: ['./prompt-manager.css']
 })
@@ -22,6 +24,8 @@ export class PromptManagerComponent implements OnInit {
   // Text editing properties
   editablePromptText: string = '';
   originalPromptText: string = ''; // To track changes
+  
+  activeTab: 'write' | 'preview' = 'write'; // <-- NEW property for tabs
   
   statusMessage: string = '';
 
@@ -40,6 +44,7 @@ export class PromptManagerComponent implements OnInit {
 
   // Renamed from 'loadPrompt' to match the HTML (change) event
   onPromptSelected(): void {
+    this.activeTab = 'write'; // Reset to write tab when changing prompt
     if (!this.selectedPromptId) {
       this.editablePromptText = '';
       this.originalPromptText = '';

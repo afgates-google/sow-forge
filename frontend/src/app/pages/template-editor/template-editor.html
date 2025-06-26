@@ -6,5 +6,27 @@
       <button (click)="saveTemplate()">Save Template</button>
     </div>
   </div>
-  <textarea class="markdown-editor" [(ngModel)]="editableContent"></textarea>
+  
+  <!-- NEW: Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-button" [class.active]="activeTab === 'write'" (click)="activeTab = 'write'">
+      Write
+    </button>
+    <button class="tab-button" [class.active]="activeTab === 'preview'" (click)="activeTab = 'preview'">
+      Preview
+    </button>
+  </div>
+
+  <!-- NEW: Tab Content -->
+  <div class="editor-content">
+    <textarea 
+      *ngIf="activeTab === 'write'"
+      class="markdown-editor" 
+      [(ngModel)]="editableContent">
+    </textarea>
+    
+    <div *ngIf="activeTab === 'preview'" class="markdown-preview">
+      <markdown [data]="editableContent"></markdown>
+    </div>
+  </div>
 </div>

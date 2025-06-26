@@ -1,14 +1,143 @@
-.editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #e0e0e0; }
-.editor-header h2 { margin: 0; font-size: 1.5rem; }
-.actions .save-button { background-color: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-.actions .gdocs-button { background-color: #4285F4; color: white; margin-left: 10px; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
-.actions button:disabled { background-color: #ccc; }
-.save-status { margin-left: 1rem; font-style: italic; }
-.tab-nav { margin-bottom: -1px; }
-.tab-nav button { padding: 10px 20px; border: 1px solid #ccc; background-color: #f8f9fa; cursor: pointer; border-bottom: none; margin-right: 5px; border-radius: 4px 4px 0 0; }
-.tab-nav button.active { background-color: white; border-bottom: 1px solid white; font-weight: bold; }
-.tab-content { border: 1px solid #ccc; padding: 1rem; border-radius: 0 4px 4px 4px; }
-.sow-editor { width: 100%; min-height: 600px; font-family: monospace; font-size: 14px; border: 1px solid #e0e0e0; padding: 10px; resize: vertical; }
-.sow-preview { min-height: 600px; }
-.back-button { display: inline-block; margin-bottom: 1.5rem; color: #007bff; text-decoration: none; }
-.back-button:hover { text-decoration: underline; }
+.editor-container, .loading-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 80px); /* Adjust 80px based on your header/nav height */
+    margin: 1rem;
+    background-color: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  
+  .loading-container {
+    align-items: center;
+    justify-content: center;
+    color: #718096;
+    font-size: 1.2rem;
+  }
+  
+  .editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    background-color: #f7fafc;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+  }
+  
+  .editor-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #2d3748;
+  }
+  
+  .editor-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .editor-actions button, .gdoc-link {
+    padding: 0.5rem 1rem;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fff;
+    background-color: #4299e1;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .editor-actions button:hover, .gdoc-link:hover {
+    background-color: #2b6cb0;
+  }
+  
+  .editor-actions button:disabled {
+    background-color: #a0aec0;
+    cursor: not-allowed;
+  }
+  
+  .gdoc-link {
+    background-color: #38a169;
+  }
+  .gdoc-link:hover {
+    background-color: #2f855a;
+  }
+  
+  .status-message {
+    color: #2f855a;
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+  
+  /* --- Tab Navigation Styles --- */
+  .tab-nav {
+    display: flex;
+    background-color: #f7fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding-left: 1.5rem;
+    flex-shrink: 0;
+  }
+  
+  .tab-button {
+    padding: 0.75rem 1.25rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #718096;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+  }
+  
+  .tab-button.active {
+    color: #2b6cb0;
+    border-bottom-color: #2b6cb0;
+  }
+  
+  .tab-button:hover {
+    color: #2d3748;
+  }
+  
+  /* --- Editor Content Area Styles --- */
+  .editor-content {
+    flex-grow: 1;
+    display: flex;
+  }
+  
+  .markdown-editor, .markdown-preview {
+    width: 100%;
+    height: 100%;
+    padding: 1.5rem;
+    box-sizing: border-box;
+    overflow-y: auto;
+  }
+  
+  .markdown-editor {
+    border: none;
+    resize: none;
+    outline: none;
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+  
+  .markdown-preview {
+    line-height: 1.7;
+  }
+  
+  .markdown-preview h1, .markdown-preview h2, .markdown-preview h3 {
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 0.3em;
+  }
+  
+  .markdown-preview code {
+    background-color: #edf2f7;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+  }
