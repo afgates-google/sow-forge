@@ -1,18 +1,23 @@
 import { Component, OnInit } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { ApiService } from '../../services/api.service';
-import { CommonModule } from '@angular/common'; 
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms'; // <-- Make sure FormsModule is imported
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule], // <-- Make sure FormsModule is in imports
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.css']
 })
 export class DashboardComponent implements OnInit {
   projects: any[] = [];
   isLoading = true;
+
+  // --- NEW: Properties for inline editing ---
+  editingProjectId: string | null = null;
+  projectNameBeforeEdit = '';
 
   constructor(private apiService: ApiService, private router: Router) { }
 
@@ -56,5 +61,29 @@ export class DashboardComponent implements OnInit {
         }
       });
     }
+  }
+
+  // --- NEW: Methods for inline editing ---
+
+  startProjectNameEdit(project: any, event: MouseEvent): void {
+    event.stopPropagation(); // Prevents navigation when clicking the edit button
+    this.editingProjectId = project.id;
+    this.projectNameBeforeEdit = project.projectName;
+  }
+
+  cancelProjectNameEdit(project: any): void {
+    project.projectName = this.projectNameBeforeEdit;
+    this.editingProjectId = null;
+  }
+
+  saveProjectName(project: any): void {
+    if (project.projectName === this.projectNameBeforeEdit) {
+      this.editingProjectId = null;
+      return;
+    }
+    // We already have a generic updateProject method in the ApiService
+    this.apiService.updateProject(project.id, { projectName: project.projectName }).subscribe(() => {
+      this.editingProjectId = null;
+    });
   }
 }

@@ -4,54 +4,48 @@ const cors = require('cors');
 const { Storage } = require('@google-cloud/storage');
 const { Firestore, FieldValue } = require('@google-cloud/firestore');
 const { GoogleAuth } = require('google-auth-library');
-
 const app = express();
 const port = process.env.PORT || 8080;
-
-// --- MODIFIED: Initialize clients without a key file.
-// They will use Application Default Credentials when running locally,
-// and the attached service account when deployed on Google Cloud.
-const firestore = new Firestore();
-const storage = new Storage();
-const auth = new GoogleAuth();
-
-// --- NEW: Global variable to hold our settings ---
-let globalSettings = null;
-
-/**
- * Fetches the settings from Firestore at server startup.
- */
-async function loadGlobalSettings() {
-  try {
-    const docRef = firestore.collection('settings').doc('global_config');
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      throw new Error("CRITICAL: 'global_config' document not found.");
-    }
-    globalSettings = doc.data();
-    console.log("✅ Global settings loaded successfully.");
-  } catch (error) {
-    console.error("❌ FAILED TO LOAD SETTINGS. Server cannot start.", error);
-    process.exit(1); // Exit if settings can't be loaded.
-  }
+// --- KEYLESS AUTHENTICATION ---
+// When running on Cloud Run (or other GCP services), the client libraries
+// will automatically find the attached service account credentials.
+// No key file is needed.
+console.log("Initializing Google Cloud clients with Application Default Credentials...");
+let firestore, storage, auth;
+try {
+  firestore = new Firestore();
+  storage = new Storage();
+  auth = new GoogleAuth();
+  console.log("✅ Google Cloud clients initialized successfully.");
+} catch (error) {
+  console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+  console.error('!!! CRITICAL: FAILED TO INITIALIZE GCLOUD CLIENTS !!!');
+  console.error(`!!! This is fatal. The server will not be able to connect to Google Cloud. Error: ${error.message}`);
+  console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+  // In a real scenario, you might want the process to exit or have more robust health checks.
 }
-
-// --- CORE LOGIC ---
-
-async function startServer() {
-  // Load settings before starting the API
-  await loadGlobalSettings();
-
-  app.use(cors()); // Consider restricting this in production: app.use(cors({ origin: 'YOUR_FRONTEND_URL' }));
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.static(path.join(__dirname, 'dist/sow-forge-app/browser')));
-
-  // --- API Endpoints now using globalSettings ---
-
-  // --- SOW PROJECT ENDPOINTS ---
-
-  // Note: The endpoints below are now defined inside startServer()
-  // so they have access to the loaded globalSettings.
+// Configure CORS to only allow your frontend's domain.
+// You will replace this with your actual Cloud Workstation or deployed frontend URL.
+const allowedOrigins = [
+    'https://4200-w-admin-mc9if4o2.cluster-e3ppspjf3zfnqwaa5t6uqxhwjo.cloudworkstations.dev',
+    // Add 'http://localhost:4200' if you still run the Angular dev server locally
+];
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+};
+app.use(cors(corsOptions));
+app.use(express.json());
+// Serve the static Angular app
+app.use(express.static(path.join(__dirname, 'public')));
+// --- ALL YOUR EXISTING API ENDPOINTS ---
+// (No changes are needed inside the endpoint handlers themselves)
+// --- SOW PROJECT ENDPOINTS ---
 
 /**
  * Creates a new SOW Project and all its source document records.
@@ -82,6 +76,7 @@ app.post('/api/projects', async (req, res) => {
       const docRef = projectRef.collection('source_documents').doc();
       await docRef.set({
         originalFilename: filename,
+        displayName: filename, // <-- NEW: Initialize displayName with the original filename
         category: category,
         status: 'PENDING_UPLOAD',
         createdAt: FieldValue.serverTimestamp(),
@@ -108,50 +103,50 @@ app.post('/api/projects', async (req, res) => {
  * Fetches all SOW projects for the dashboard view.
  */
 app.get('/api/projects', async (req, res) => {
-    try {
-        const snapshot = await firestore.collection('sow_projects').orderBy('createdAt', 'desc').get();
-        if (snapshot.empty) return res.status(200).send([]);
-        
-        const projects = snapshot.docs.map(doc => {
-            const data = doc.data();
-            if (data.createdAt && data.createdAt.toDate) {
-                data.createdAt = data.createdAt.toDate().toISOString();
-            }
-            return { id: doc.id, ...data };
-        });
-        res.status(200).send(projects);
-    } catch (error) {
-        console.error('!!! Error fetching SOW projects:', error.message);
-        res.status(500).send({ message: 'Could not fetch SOW projects.' });
-    }
+  try {
+    const snapshot = await firestore.collection('sow_projects').orderBy('createdAt', 'desc').get();
+    if (snapshot.empty) return res.status(200).send([]);
+    
+    const projects = snapshot.docs.map(doc => {
+        const data = doc.data();
+        if (data.createdAt && data.createdAt.toDate) {
+            data.createdAt = data.createdAt.toDate().toISOString();
+        }
+        return { id: doc.id, ...data };
+    });
+    res.status(200).send(projects);
+  } catch (error) {
+    console.error('!!! Error fetching SOW projects:', error.message);
+    res.status(500).send({ message: 'Could not fetch SOW projects.' });
+  }
 });
 
 /**
  * Fetches details for a single SOW project, including all its source documents.
  */
 app.get('/api/projects/:projectId', async (req, res) => {
-    try {
-        const projectId = req.params.projectId;
-        const projectRef = firestore.collection('sow_projects').doc(projectId);
-        
-        // Fetch the main project document
-        const projectDoc = await projectRef.get();
-        if (!projectDoc.exists) {
-            return res.status(404).send({ message: 'Project not found.' });
-        }
-        const projectData = projectDoc.data();
-
-        // Fetch all documents from the sub-collection
-        const sourceDocsSnapshot = await projectRef.collection('source_documents').orderBy('createdAt').get();
-        const sourceDocuments = sourceDocsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        // Combine and send the response
-        res.status(200).send({ ...projectData, id: projectDoc.id, sourceDocuments });
-
-    } catch (error) {
-        console.error(`!!! Error fetching project details for ${req.params.projectId}:`, error.message);
-        res.status(500).send({ message: 'Could not fetch project details.' });
+  try {
+    const projectId = req.params.projectId;
+    const projectRef = firestore.collection('sow_projects').doc(projectId);
+    
+    // Fetch the main project document
+    const projectDoc = await projectRef.get();
+    if (!projectDoc.exists) {
+        return res.status(404).send({ message: 'Project not found.' });
     }
+    const projectData = projectDoc.data();
+
+    // Fetch all documents from the sub-collection
+    const sourceDocsSnapshot = await projectRef.collection('source_documents').orderBy('createdAt').get();
+    const sourceDocuments = sourceDocsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Combine and send the response
+    res.status(200).send({ ...projectData, id: projectDoc.id, sourceDocuments });
+
+  } catch (error) {
+    console.error(`!!! Error fetching project details for ${req.params.projectId}:`, error.message);
+    res.status(500).send({ message: 'Could not fetch project details.' });
+  }
 });
 
 /**
@@ -180,41 +175,41 @@ app.get('/api/projects/:projectId/documents/:docId', async (req, res) => {
  * Triggers a re-analysis of a specific source document.
  */
 app.post('/api/projects/:projectId/documents/:docId/regenerate', async (req, res) => {
-    try {
-        const { projectId, docId } = req.params;
-        const docRef = firestore.collection('sow_projects').doc(projectId).collection('source_documents').doc(docId);
-        
-        // 1. Update the status in Firestore to give immediate feedback in the UI
-        await docRef.update({
-            status: 'RE_ANALYZING',
-            lastUpdatedAt: FieldValue.serverTimestamp()
-        });
-        console.log(`Set status to RE_ANALYZING for doc: ${docId}`);
+  try {
+    const { projectId, docId } = req.params;
+    const docRef = firestore.collection('sow_projects').doc(projectId).collection('source_documents').doc(docId);
+    
+    // 1. Update the status in Firestore to give immediate feedback in the UI
+    await docRef.update({
+        status: 'RE_ANALYZING',
+        lastUpdatedAt: FieldValue.serverTimestamp()
+    });
+    console.log(`Set status to RE_ANALYZING for doc: ${docId}`);
 
-        // 2. "Touch" the GCS file by updating its metadata. This will re-trigger
-        //    the legislative_analysis_func Cloud Function if it's configured for metadata updates.
-        const txtFilename = `${projectId}/${docId}.txt`;
-        const file = storage.bucket(globalSettings.gcs_processed_text_bucket).file(txtFilename);
-        
-        const [exists] = await file.exists();
-        if (!exists) {
-            return res.status(404).json({ message: 'Processed text file not found. Cannot regenerate.' });
-        }
-
-        await file.setMetadata({
-            metadata: {
-                // Add a timestamp to ensure the metadata actually changes
-                regenerated_at: new Date().toISOString()
-            }
-        });
-        
-        console.log(`Triggered re-analysis for GCS file: ${txtFilename}`);
-        res.status(200).json({ message: 'Re-analysis triggered successfully.' });
-
-    } catch (error) {
-        console.error(`!!! Error triggering re-analysis for doc ${req.params.docId}:`, error.message);
-        res.status(500).json({ message: 'Could not trigger re-analysis.' });
+    // 2. "Touch" the GCS file by updating its metadata. This will re-trigger
+    //    the legislative_analysis_func Cloud Function if it's configured for metadata updates.
+    const txtFilename = `${projectId}/${docId}.txt`;
+    const file = storage.bucket(globalSettings.gcs_processed_text_bucket).file(txtFilename);
+    
+    const [exists] = await file.exists();
+    if (!exists) {
+        return res.status(404).json({ message: 'Processed text file not found. Cannot regenerate.' });
     }
+
+    await file.setMetadata({
+        metadata: {
+            // Add a timestamp to ensure the metadata actually changes
+            regenerated_at: new Date().toISOString()
+        }
+    });
+    
+    console.log(`Triggered re-analysis for GCS file: ${txtFilename}`);
+    res.status(200).json({ message: 'Re-analysis triggered successfully.' });
+
+  } catch (error) {
+    console.error(`!!! Error triggering re-analysis for doc ${req.params.docId}:`, error.message);
+    res.status(500).json({ message: 'Could not trigger re-analysis.' });
+  }
 });
 
 // --- Add these to server.js ---
@@ -223,16 +218,33 @@ app.post('/api/projects/:projectId/documents/:docId/regenerate', async (req, res
  * Generic endpoint to update a SOW project document.
  */
 app.put('/api/projects/:projectId', async (req, res) => {
-    try {
-        const docRef = firestore.collection('sow_projects').doc(req.params.projectId);
-        // Add a timestamp to every update for tracking
-        const updateData = { ...req.body, lastUpdatedAt: FieldValue.serverTimestamp() };
-        await docRef.update(updateData);
-        res.status(200).send({ message: 'Project updated successfully.' });
-    } catch (error) {
-        console.error(`!!! Error updating project ${req.params.projectId}:`, error.message);
-        res.status(500).send({ message: 'Could not update project.' });
-    }
+  try {
+    const docRef = firestore.collection('sow_projects').doc(req.params.projectId);
+    // Add a timestamp to every update for tracking
+    const updateData = { ...req.body, lastUpdatedAt: FieldValue.serverTimestamp() };
+    await docRef.update(updateData);
+    res.status(200).send({ message: 'Project updated successfully.' });
+  } catch (error) {
+    console.error(`!!! Error updating project ${req.params.projectId}:`, error.message);
+    res.status(500).send({ message: 'Could not update project.' });
+  }
+});
+
+/**
+ * Updates a specific source document within a project (e.g., for renaming).
+ */
+app.put('/api/projects/:projectId/source_documents/:docId', async (req, res) => {
+  try {
+    const { projectId, docId } = req.params;
+    const docRef = firestore.collection('sow_projects').doc(projectId).collection('source_documents').doc(docId);
+    
+    const updateData = { ...req.body, lastUpdatedAt: FieldValue.serverTimestamp() };
+    await docRef.update(updateData);
+    res.status(200).send({ message: 'Source document updated successfully.' });
+  } catch (error) {
+    console.error(`!!! Error updating source document ${req.params.docId}:`, error.message);
+    res.status(500).send({ message: 'Could not update source document.' });
+  }
 });
 
 /**
@@ -241,38 +253,37 @@ app.put('/api/projects/:projectId', async (req, res) => {
 app.delete('/api/projects/:projectId', async (req, res) => {
     const projectId = req.params.projectId;
     console.log(`--- DELETE request received for project: ${projectId} ---`);
-
     try {
-        const projectRef = firestore.collection('sow_projects').doc(projectId);
+      const projectRef = firestore.collection('sow_projects').doc(projectId);
 
-        // 1. Delete all files in the GCS project folders
-        const bucket = storage.bucket(globalSettings.gcs_uploads_bucket);
-        await bucket.deleteFiles({ prefix: `${projectId}/` });
-        console.log(`Deleted all GCS files in folder: ${projectId}/`);
+      // 1. Delete all files in the GCS project folders
+      const bucket = storage.bucket(globalSettings.gcs_uploads_bucket);
+      await bucket.deleteFiles({ prefix: `${projectId}/` });
+      console.log(`Deleted all GCS files in folder: ${projectId}/`);
 
-        await storage.bucket(globalSettings.gcs_processed_text_bucket).deleteFiles({ prefix: `${projectId}/` });
-        await storage.bucket(globalSettings.gcs_batch_output_bucket).deleteFiles({ prefix: `${projectId}/` });
+      await storage.bucket(globalSettings.gcs_processed_text_bucket).deleteFiles({ prefix: `${projectId}/` });
+      await storage.bucket(globalSettings.gcs_batch_output_bucket).deleteFiles({ prefix: `${projectId}/` });
 
 
-        // 2. Delete all documents in the sub-collection (requires a recursive helper)
-        const subcollectionRef = projectRef.collection('source_documents');
-        const subcollectionSnapshot = await subcollectionRef.get();
-        const batch = firestore.batch();
-        subcollectionSnapshot.docs.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-        await batch.commit();
-        console.log(`Deleted all documents in 'source_documents' sub-collection for project ${projectId}.`);
-        
-        // 3. Finally, delete the main project document
-        await projectRef.delete();
-        console.log(`Deleted Firestore project document: ${projectId}`);
+      // 2. Delete all documents in the sub-collection (requires a recursive helper)
+      const subcollectionRef = projectRef.collection('source_documents');
+      const subcollectionSnapshot = await subcollectionRef.get();
+      const batch = firestore.batch();
+      subcollectionSnapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+      });
+      await batch.commit();
+      console.log(`Deleted all documents in 'source_documents' sub-collection for project ${projectId}.`);
+      
+      // 3. Finally, delete the main project document
+      await projectRef.delete();
+      console.log(`Deleted Firestore project document: ${projectId}`);
 
-        res.status(200).send({ message: 'Project and all associated files deleted successfully.' });
+      res.status(200).send({ message: 'Project and all associated files deleted successfully.' });
 
     } catch (error) {
-        console.error('!!! Error during project deletion:', error.message, error.stack);
-        res.status(500).send({ message: 'Could not complete project deletion process.' });
+      console.error('!!! Error during project deletion:', error.message, error.stack);
+      res.status(500).send({ message: 'Could not complete project deletion process.' });
     }
 });
 
@@ -490,12 +501,8 @@ app.put('/api/prompts/:promptId', async (req, res) => {
 
 // --- WILDCARD ROUTE (MUST BE THE VERY LAST ROUTE) ---
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/sow-forge-app/browser/index.html'));
+  res.sendFile(path.join(__dirname, 'public/index.html'));
 });
-  
-  app.listen(port, () => {
-    console.log(`Server listening on port ${port}`);
-  });
-}
-
-startServer();
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
+});

@@ -1,4 +1,6 @@
 .page-container {
+  max-width: 900px;
+  margin: 2rem auto;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -9,116 +11,138 @@ h2 {
   margin-bottom: 2rem;
 }
 
-.content-card, .no-content-card {
-  background-color: #ffffff;
-  padding: 1rem; /* Less padding for tables */
+/* --- No Projects State --- */
+.no-projects-card {
+  text-align: center;
+  padding: 3rem 2rem;
+  background-color: #fff;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
-
-table {
-  width: 100%;
-  border-collapse: collapse;
+.no-projects-card .icon-large {
+  font-size: 48px;
+  color: #a0aec0;
 }
-
-th, td {
-  padding: 1rem 1.25rem;
-  text-align: left;
-  border-bottom: 1px solid #edf2f7;
-}
-
-thead th {
-  font-weight: 600;
-  color: #4a5568;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-}
-
-td {
-  color: #2d3748;
-}
-
-.project-link {
-  font-weight: 600;
-  color: #2b6cb0;
-  text-decoration: none;
-}
-
-.project-link:hover {
-  text-decoration: underline;
-}
-
-.status-tag {
-  display: inline-block;
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-
-/* Status colors (can be shared with project-status.css) */
-.sow_generated, .analyzed_success, .analysis_complete { background-color: #c6f6d5; color: #22543d; }
-.analyzing, .processing_ocr, .drafting { background-color: #bee3f8; color: #2c5282; }
-.analysis_failed, .ocr_failed { background-color: #fed7d7; color: #822727; }
-.pending_upload { background-color: #e2e8f0; color: #4a5568; }
-
-.actions-cell {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.action-btn {
-  padding: 0.3rem 0.8rem;
-  text-decoration: none;
-  border-radius: 4px;
-  border: 1px solid #cbd5e0;
-  background-color: #fff;
-  color: #2d3748;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.action-btn:hover {
-  background-color: #edf2f7;
-}
-
-.delete-btn {
-  color: #c53030;
-  border-color: #fed7d7;
-}
-
-.delete-btn:hover {
-  background-color: #fff5f5;
-}
-
-.no-content-card {
-  text-align: center;
-  padding: 3rem;
+.no-projects-card p {
   color: #718096;
-}
-
-.primary-action-btn {
-  display: inline-block;
+  font-size: 1.1rem;
   margin-top: 1rem;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
+}
+.no-projects-card .btn-primary {
+  display: inline-block;
+  margin-top: 1.5rem;
   text-decoration: none;
+  padding: 0.75rem 1.5rem;
   font-weight: 600;
   color: #fff;
   background-color: #4299e1;
   border-radius: 6px;
 }
-.re_analyzing {
-  background-color: #bee3f8; /* Same as other 'in-progress' states */
-  color: #2c5282;
+
+/* --- Project List & Card Styles --- */
+.project-list {
+  display: grid;
+  gap: 1rem;
 }
 
-/* Add re_analyzing to the list of in-progress states */
-.analyzing, .processing_ocr, .drafting, .re_analyzing { 
-  background-color: #bee3f8; 
-  color: #2c5282; 
+.project-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background-color: #fff;
+  padding: 1.25rem 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.project-card:hover {
+  border-color: #cbd5e0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.project-info {
+  flex-grow: 1;
+}
+
+.project-name-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.project-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3748;
+  text-decoration: none;
+}
+.project-name:hover {
+  color: #2b6cb0;
+}
+
+.project-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-color: #a0aec0; /* Default gray */
+}
+/* Status colors */
+.sow_generated { background-color: #48bb78; } /* Green */
+.analysis_complete { background-color: #48bb78; } /* Green */
+.analyzing, .processing_ocr, .re_analyzing, .drafting { background-color: #4299e1; } /* Blue */
+.analysis_failed, .ocr_failed { background-color: #f56565; } /* Red */
+
+.project-meta {
+  font-size: 0.8rem;
+  color: #718096;
+}
+.project-meta span {
+  margin-right: 1rem;
+}
+
+/* --- Action Buttons --- */
+.project-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.action-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background-color: #4299e1;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.action-btn-primary:hover {
+  background-color: #2b6cb0;
+}
+
+.action-btn-icon {
+  display: inline-flex;
+  padding: 0.5rem;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #718096;
+}
+.action-btn-icon:hover {
+  background-color: #edf2f7;
+  color: #c53030;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 2rem;
+  color: #718096;
 }

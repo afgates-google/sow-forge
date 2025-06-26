@@ -54,6 +54,11 @@ export class ApiService {
   regenerateAnalysis(projectId: string, docId: string): Observable<any> {
     return this.http.post(`/api/projects/${projectId}/documents/${docId}/regenerate`, {});
   }
+
+  // Add this method to your ApiService class
+  updateSourceDocument(projectId: string, docId: string, data: { displayName: string }): Observable<any> {
+    return this.http.put(`/api/projects/${projectId}/source_documents/${docId}`, data);
+  }
   // --- Google Doc Management ---
 
 
@@ -72,8 +77,9 @@ export class ApiService {
     return this.http.get<any>(`/api/templates/${templateId}`);
   }
 
-  updateTemplate(templateId: string, markdownContent: string): Observable<any> {
-    return this.http.put(`/api/templates/${templateId}`, { markdownContent });
+  // --- FIX: Correcting updateTemplate to be flexible ---
+  updateTemplate(templateId: string, data: { name?: string; markdownContent?: string }): Observable<any> {
+    return this.http.put(`/api/templates/${templateId}`, data);
   }
 
   deleteTemplate(templateId: string): Observable<any> {
@@ -81,18 +87,18 @@ export class ApiService {
   }
 
   // This method proxies to the template_generation_func
-  createTemplateFromSamples(templateName: string, templateDescription: string, sampleFiles: string[]): Observable<any> {
+  createTemplateFromSamples(templateName: string, templateDescription: string, sampleFilePaths: string[]): Observable<any> {
     return this.http.post('/api/generate-template', { 
       template_name: templateName,
       template_description: templateDescription,
-      sample_files: sampleFiles 
+      sample_files: sampleFilePaths 
     });
   }
 
   // --- Utility for direct GCS uploads ---
   
-  getUploadUrl(filename: string, contentType: string, targetBucket: 'sows' | 'templates'): Observable<any> {
-    return this.http.post('/api/generate-upload-url', { filename, contentType, targetBucket });
+  getUploadUrl(filename: string, contentType: string, targetBucket: 'sows' | 'templates', projectId?: string, docId?: string): Observable<any> {
+    return this.http.post('/api/generate-upload-url', { filename, contentType, targetBucket, projectId, docId });
   }
 
 
@@ -114,7 +120,13 @@ export class ApiService {
     return this.http.get<any>(`/api/prompts/${promptId}`);
   }
 
+  // For updating the prompt's text content
   updatePrompt(promptId: string, promptText: string): Observable<any> {
     return this.http.put(`/api/prompts/${promptId}`, { prompt_text: promptText });
+  }
+
+  // --- NEW: The missing method for renaming prompts ---
+  updatePromptDetails(promptId: string, data: { name: string }): Observable<any> {
+    return this.http.put(`/api/prompts/${promptId}`, data);
   }
 }

@@ -1,35 +1,68 @@
-.app-header {
-  width: 100%;
+/*
+ * This file styles the main application shell using a centered layout.
+ */
+
+/* The main <header> element, which is full-width */
+.main-header {
+  height: 65px;
   background-color: #ffffff;
   border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-  padding: 0;
-  margin-bottom: 2rem;
-}
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 
-nav {
+  /* Use flexbox to center its child vertically and horizontally */
   display: flex;
   align-items: center;
-  height: 60px; /* A standard header height */
-  gap: 1.5rem;
+  justify-content: center;
+  padding: 0 1rem; /* Padding for smaller screens */
+}
+
+/* The inner container that centers the content */
+.header-content {
+  width: 100%;
+  max-width: 1280px; /* Adjust this to make the header wider or narrower */
+  display: flex;
+  justify-content: space-between; /* Pushes logo and nav apart */
   align-items: center;
 }
 
-nav a {
+.logo h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #2d3748;
+}
+
+/* The navigation bar itself */
+.main-nav {
+  display: flex;
+  gap: 2rem;
+}
+
+/* Individual navigation links */
+.main-nav a {
   text-decoration: none;
   color: #4a5568;
   font-weight: 500;
-  font-size: 0.95rem;
   padding: 0.5rem 0;
   border-bottom: 3px solid transparent;
   transition: color 0.2s, border-color 0.2s;
 }
 
-nav a:hover {
+.main-nav a:hover {
   color: #2b6cb0;
 }
 
-nav a.active {
+/* The currently active navigation link */
+.main-nav a.active {
   color: #2b6cb0;
   border-bottom-color: #2b6cb0;
+}
+
+/* The main content area below the header */
+.main-content {
+  max-width: 1280px; /* Match the header's max-width for alignment */
+  margin: 0 auto; /* Center the content area */
+  padding: 1.5rem;
 }

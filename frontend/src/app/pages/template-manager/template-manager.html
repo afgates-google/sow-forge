@@ -1,9 +1,8 @@
-<div class="page-container">
-  <!-- The <h2> is now OUTSIDE the main card, at the page level -->
+<div class="manager-container">
   <h2>Template Manager</h2>
-  <p>Create new SOW templates from sample documents or manage existing ones.</p>
 
-  <div class="content-card new-template-section">
+  <!-- Section for creating a new template -->
+  <div class="new-template-section">
     <h3>Create New Template</h3>
     <div class="form-group">
       <label for="templateName">Template Name</label>
@@ -13,21 +12,37 @@
       <label for="templateDesc">Description</label>
       <textarea id="templateDesc" [(ngModel)]="newTemplateDescription" placeholder="A brief description of when to use this template."></textarea>
     </div>
-    <div class="form-group">
-      <label>Upload Sample Files (PDF, TXT)</label>
-      <input type="file" (change)="onFileSelected($event)" multiple>
-      <ul *ngIf="stagedFiles.length > 0" class="staged-files-list">
-        <li *ngFor="let file of stagedFiles; let i = index">
-          {{ file.name }} <button (click)="removeStagedFile(i)">×</button>
-        </li>
-      </ul>
-    </div>
-    <button (click)="createTemplate()" [disabled]="!newTemplateName || stagedFiles.length === 0 || isCreating">
-      {{ isCreating ? 'Creating...' : 'Create Template from Samples' }}
-    </button>
+    <!-- THIS IS THE NEW CODE -->
+<div class="form-group">
+  <label>Upload Sample Files (PDF, TXT)</label>
+  
+  <!-- This input is now hidden, but is still triggered by the button below. -->
+  <input type="file" (change)="onFileSelected($event)" multiple hidden #templateFileInput>
+  
+  <!-- This is the new, styled button that the user will see and click. -->
+  <button type="button" class="select-files-btn btn-secondary" (click)="templateFileInput.click()">
+    <span class="material-symbols-outlined">upload_file</span>
+    Select Sample Files
+  </button>
+  
+  <!-- The list of staged files remains the same -->
+  <ul *ngIf="stagedFiles.length > 0" class="staged-files-list">
+    <li *ngFor="let file of stagedFiles; let i = index">
+      <span>{{ file.name }}</span>
+      <!-- REPLACED BUTTON WITH A STYLED ICON -->
+      <button (click)="removeStagedFile(i)" class="remove-btn btn-secondary" title="Remove file">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </li>
+  </ul>
+</div>
+<button class="btn-primary" (click)="createTemplate()" [disabled]="!newTemplateName || stagedFiles.length === 0 || isCreating">
+  {{ isCreating ? 'Creating...' : 'Create Template from Samples' }}
+</button>
   </div>
 
-  <div class="content-card existing-templates-section">
+  <!-- Section for listing existing templates -->
+  <div class="existing-templates-section">
     <h3>Existing Templates</h3>
     <table>
       <thead>
@@ -38,11 +53,28 @@
         </tr>
       </thead>
       <tbody>
+        <!-- THIS IS THE CORRECTED TABLE ROW -->
         <tr *ngFor="let t of templates">
-          <td>{{ t.name }}</td>
+          <td>
+            <div class="name-cell">
+              <span *ngIf="editingTemplateId !== t.id">{{ t.name }}</span>
+              <div *ngIf="editingTemplateId === t.id" class="edit-form-inline">
+                  <input type="text" [(ngModel)]="t.name" (keyup.enter)="saveTemplateName(t)" (keyup.escape)="cancelTemplateNameEdit(t)">
+                  <button class="save-btn" (click)="saveTemplateName(t)" title="Save">
+                    <span class="material-symbols-outlined">check</span>
+                  </button>
+                  <button class="cancel-btn" (click)="cancelTemplateNameEdit(t)" title="Cancel">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+              </div>
+              <span class="material-symbols-outlined edit-icon" *ngIf="editingTemplateId !== t.id" (click)="startTemplateNameEdit(t, $event)" title="Rename Template">
+                edit_square
+              </span>
+            </div>
+          </td>
           <td>{{ t.description }}</td>
           <td class="actions-cell">
-            <a [routerLink]="['/templates', t.id, 'edit']" class="action-btn">Edit</a>
+            <a [routerLink]="['/templates', t.id, 'edit']" class="action-btn">Edit Content</a>
             <button (click)="deleteTemplate(t.id, t.name)" class="action-btn delete-btn">Delete</button>
           </td>
         </tr>

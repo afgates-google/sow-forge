@@ -20,6 +20,13 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
   isGenerating = false;
   errorMessage: string | null = null;
   
+  isEditingProjectName = false;
+  projectNameBeforeEdit = '';
+
+  // Add these properties to the class
+  editingDocId: string | null = null;
+  docNameBeforeEdit = '';
+
   isLoading = true; // <-- CRITICAL FIX: Added this missing property
 
   private pollingSubscription?: Subscription;
@@ -121,6 +128,48 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
         console.error(err);
         document.isRegenerating = false; // Re-enable button on error
       }
+    });
+  }
+
+  startProjectNameEdit(): void {
+    this.projectNameBeforeEdit = this.project.projectName;
+    this.isEditingProjectName = true;
+  }
+
+  cancelProjectNameEdit(): void {
+    this.project.projectName = this.projectNameBeforeEdit;
+    this.isEditingProjectName = false;
+  }
+
+  saveProjectName(): void {
+    if (this.project.projectName === this.projectNameBeforeEdit) {
+      this.isEditingProjectName = false;
+      return;
+    }
+    this.apiService.updateProject(this.projectId, { projectName: this.project.projectName }).subscribe(() => {
+      this.isEditingProjectName = false;
+      // Optionally show a success message
+    });
+  }
+
+  // Add these methods to the class
+  startDocNameEdit(doc: any): void {
+    this.editingDocId = doc.id;
+    this.docNameBeforeEdit = doc.displayName;
+  }
+
+  cancelDocNameEdit(doc: any): void {
+    doc.displayName = this.docNameBeforeEdit;
+    this.editingDocId = null;
+  }
+
+  saveDocName(doc: any): void {
+    if (doc.displayName === this.docNameBeforeEdit) {
+      this.editingDocId = null;
+      return;
+    }
+    this.apiService.updateSourceDocument(this.projectId, doc.id, { displayName: doc.displayName }).subscribe(() => {
+      this.editingDocId = null;
     });
   }
 

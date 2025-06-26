@@ -2,31 +2,32 @@ import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MarkdownModule } from 'ngx-markdown'; // <-- IMPORT
+import { MarkdownModule } from 'ngx-markdown'; 
 
 @Component({
   selector: 'app-prompt-manager',
   standalone: true,
-  imports: [CommonModule, FormsModule, MarkdownModule], // <-- ADD MarkdownModule
-  // Note: The template URL was changed in the provided snippet, ensure it matches your actual file name.
-  templateUrl: './prompt-manager.html',
+  imports: [CommonModule, FormsModule, MarkdownModule],
+  templateUrl: './prompt-manager.html', // <-- Ensure this filename is correct
   styleUrls: ['./prompt-manager.css']
 })
 export class PromptManagerComponent implements OnInit {
   prompts: any[] = [];
   selectedPromptId: string | null = null;
   
-  // State management properties
+  // State for loading
   isLoadingList = true;
   isLoadingPrompt = false;
   isSaving = false;
   
-  // Text editing properties
+  // State for content editing
   editablePromptText: string = '';
-  originalPromptText: string = ''; // To track changes
+  originalPromptText: string = '';
   
-  activeTab: 'write' | 'preview' = 'write'; // <-- NEW property for tabs
-  
+  // State for inline name editing
+  editingPromptId: string | null = null;
+  promptNameBeforeEdit = '';
+
   statusMessage: string = '';
 
   constructor(private apiService: ApiService) { }
@@ -35,25 +36,26 @@ export class PromptManagerComponent implements OnInit {
     this.apiService.getPrompts().subscribe(data => {
       this.prompts = data;
       this.isLoadingList = false;
-      if (this.prompts.length > 0) {
-        this.selectedPromptId = this.prompts[0].id;
-        this.loadPrompt();
-      }
     });
   }
 
-  // Renamed from 'loadPrompt' to match the HTML (change) event
+  selectPrompt(promptId: string): void {
+    if (this.editingPromptId) return;
+    this.selectedPromptId = promptId;
+    this.loadPromptContent();
+  }
+
+  // --- FIX: Renamed this method for clarity ---
   onPromptSelected(): void {
-    this.activeTab = 'write'; // Reset to write tab when changing prompt
     if (!this.selectedPromptId) {
       this.editablePromptText = '';
       this.originalPromptText = '';
       return;
     }
-    this.loadPrompt();
+    this.loadPromptContent();
   }
-  
-  loadPrompt(): void {
+
+  loadPromptContent(): void {
     if (!this.selectedPromptId) return;
 
     this.isLoadingPrompt = true;
@@ -61,7 +63,7 @@ export class PromptManagerComponent implements OnInit {
     
     this.apiService.getPromptDetails(this.selectedPromptId).subscribe(data => {
       this.editablePromptText = data.prompt_text;
-      this.originalPromptText = data.prompt_text; // Set original text
+      this.originalPromptText = data.prompt_text;
       this.isLoadingPrompt = false;
       this.statusMessage = '';
     });
@@ -73,16 +75,43 @@ export class PromptManagerComponent implements OnInit {
     this.isSaving = true;
     this.statusMessage = 'Saving...';
     
-    this.apiService.updatePrompt(this.selectedPromptId, this.editablePromptText).subscribe(() => {
-      this.originalPromptText = this.editablePromptText; // Update original text
-      this.statusMessage = `Saved successfully at ${new Date().toLocaleTimeString()}`;
-      this.isSaving = false;
-      setTimeout(() => this.statusMessage = '', 3000);
+    this.apiService.updatePrompt(this.selectedPromptId, this.editablePromptText).subscribe({
+      next: () => {
+        this.originalPromptText = this.editablePromptText;
+        this.statusMessage = `Content saved successfully at ${new Date().toLocaleTimeString()}`;
+        this.isSaving = false;
+        setTimeout(() => this.statusMessage = '', 3000);
+      },
+      error: (err) => { this.statusMessage = 'Save failed!'; this.isSaving = false; console.error(err); }
     });
   }
 
-  // Getter to check if the prompt text has been changed
   isPristine(): boolean {
     return this.editablePromptText === this.originalPromptText;
+  }
+
+  // --- Methods for Inline Name Editing ---
+
+  startPromptNameEdit(prompt: any, event: MouseEvent): void {
+    event.stopPropagation();
+    this.editingPromptId = prompt.id;
+    this.promptNameBeforeEdit = prompt.name;
+  }
+
+  cancelPromptNameEdit(prompt: any): void {
+    prompt.name = this.promptNameBeforeEdit;
+    this.editingPromptId = null;
+  }
+
+  // --- FIX: Corrected method ---
+  savePromptName(prompt: any): void {
+    if (prompt.name === this.promptNameBeforeEdit) {
+      this.editingPromptId = null;
+      return;
+    }
+    // Now calls the correct, newly added method
+    this.apiService.updatePromptDetails(prompt.id, { name: prompt.name }).subscribe(() => {
+      this.editingPromptId = null;
+    });
   }
 }

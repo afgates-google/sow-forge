@@ -8,7 +8,25 @@
   </div>
 
   <div *ngIf="!isLoading && project">
-    <h2>SOW Project: {{ project.projectName }}</h2>
+    <!-- Find the h2 element and replace it with this block -->
+    <div class="project-header">
+      <h2 *ngIf="!isEditingProjectName">
+        SOW Project: {{ project.projectName }}
+        <span class="material-symbols-outlined edit-icon" (click)="startProjectNameEdit()" title="Rename Project">
+          edit_square
+        </span>
+      </h2>
+      <div *ngIf="isEditingProjectName" class="edit-form">
+        <input type="text" [(ngModel)]="project.projectName" (keyup.enter)="saveProjectName()" (keyup.escape)="cancelProjectNameEdit()" />
+        <!-- REPLACED BUTTONS -->
+        <button class="save-btn" (click)="saveProjectName()" title="Save">
+          <span class="material-symbols-outlined">check</span>
+        </button>
+        <button class="cancel-btn" (click)="cancelProjectNameEdit()" title="Cancel">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+    </div>
     <p class="project-subtitle">
       <strong>Overall Status:</strong>
       <span class="status-tag" [ngClass]="project.status.toLowerCase().replace('_', '-')">{{ project.status }}</span>
@@ -18,39 +36,50 @@
       <h3>Source Documents</h3>
       <p class="info-text">Monitoring analysis progress. This page will auto-refresh every 5 seconds.</p>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Filename</th>
-            <th>Category</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let doc of project.sourceDocuments">
-            <td>{{ doc.originalFilename }}</td>
-            <td>{{ doc.category }}</td>
-            <td>
-              <span class="status-tag" [ngClass]="doc.status.toLowerCase().replace('_', '-')">{{ doc.status }}</span>
-            </td>
-            <td class="actions-cell">
-              <a *ngIf="doc.status === 'ANALYZED_SUCCESS'"
-                 [routerLink]="['/projects', project.id, 'documents', doc.id]"
-                 class="action-btn">
-                View Analysis
-              </a>
-              <button
-                *ngIf="doc.status === 'ANALYZED_SUCCESS' || doc.status === 'ANALYSIS_FAILED'"
-                (click)="regenerateAnalysis(doc)"
-                [disabled]="doc.isRegenerating"
-                class="action-btn regenerate-btn">
-                {{ doc.isRegenerating ? 'Regenerating...' : 'Regenerate' }}
+    <table>
+      <thead>
+        <tr>
+          <th>Document Name</th> <!-- Change header -->
+          <th>Category</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let doc of project.sourceDocuments">
+          <td>
+            <span *ngIf="editingDocId !== doc.id" class="name-display">
+              {{ doc.displayName }}
+              <span class="material-symbols-outlined edit-icon" (click)="startDocNameEdit(doc)" title="Rename Document">
+                edit_square
+              </span>
+            </span>
+            <div *ngIf="editingDocId === doc.id" class="edit-form">
+              <input type="text" [(ngModel)]="doc.displayName" (keyup.enter)="saveDocName(doc)" (keyup.escape)="cancelDocNameEdit(doc)">
+              <!-- REPLACED BUTTONS -->
+              <button class="save-btn" (click)="saveDocName(doc)" title="Save">
+                <span class="material-symbols-outlined">check</span>
               </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              <button class="cancel-btn" (click)="cancelDocNameEdit(doc)" title="Cancel">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+          </td>
+          <td>{{ doc.category }}</td>
+          <td>
+            <span class="status-tag" [ngClass]="doc.status.toLowerCase().replace('_', '-')">{{ doc.status }}</span>
+          </td>
+          <td class="actions-cell">
+            <a *ngIf="doc.status === 'ANALYZED_SUCCESS'" [routerLink]="['/projects', project.id, 'documents', doc.id]" class="action-btn">
+              View Analysis
+            </a>
+            <button *ngIf="doc.status === 'ANALYZED_SUCCESS' || doc.status === 'ANALYSIS_FAILED'" (click)="regenerateAnalysis(doc)" [disabled]="doc.isRegenerating" class="action-btn regenerate-btn">
+              {{ doc.isRegenerating ? 'Regenerating...' : 'Regenerate' }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 
       <!-- SOW Generation Controls -->
       <div *ngIf="isAnalysisComplete" class="generation-controls">

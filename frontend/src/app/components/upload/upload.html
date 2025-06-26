@@ -1,62 +1,50 @@
-<div class="page-container">
+<div class="upload-container">
   <h2>Create a New Statement of Work</h2>
-  <p>Upload one or more source documents to start a new SOW project.</p>
+  
+  <div class="project-name-input">
+    <label for="projectName">SOW Project Name:</label>
+    <input type="text" id="projectName" [(ngModel)]="projectName" placeholder="e.g., Q1 Security Upgrades">
+  </div>
 
-  <div class="creation-card">
-    <!-- Project Name Input -->
-    <div class="form-group">
-      <label for="projectName">SOW Project Name</label>
-      <input type="text" id="projectName" [(ngModel)]="projectName" placeholder="e.g., Q1 Security Upgrades">
-    </div>
+  <!-- Source Documents Section -->
+  <label class="source-docs-label">Source Documents</label>
+  <div class="drop-zone" 
+       (dragover)="onDragOver($event)" 
+       (dragleave)="onDragLeave($event)" 
+       (drop)="onDrop($event)">
+    <p>Drag & Drop Your Files Here (PDF, TXT, MD)</p>
+    <p>or</p>
+    <input type="file" (change)="onFileSelected($event)" multiple hidden #fileInput>
+    <button type="button" class="select-files-btn btn-secondary" (click)="fileInput.click()">
+      <span class="material-symbols-outlined">upload_file</span>
+      Select Files
+    </button>
+  </div>
 
-    <!-- File Drop Zone -->
-    <div class="form-group">
-      <label>Source Documents</label>
-      <div class="drop-zone" 
-           (dragover)="onDragOver($event)" 
-           (dragleave)="onDragLeave($event)" 
-           (drop)="onDrop($event)">
-        <p>Drag & Drop Your Files Here (PDF, TXT, MD)</p>
-        <p>or</p>
-        <input type="file" (change)="onFileSelected($event)" multiple hidden #fileInput>
-        <button class="select-files-btn" (click)="fileInput.click()">Select Files</button>
-      </div>
-    </div>
-
-    <!-- Staged Files List Table -->
-    <div class="form-group" *ngIf="stagedFiles.length > 0">
-      <label>Staged Documents</label>
-      <table>
-        <thead>
-          <tr>
-            <th>Filename</th>
-            <th>Category</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of stagedFiles; let i = index">
-            <td>{{ item.file.name }}</td>
-            <td>
-              <select [(ngModel)]="item.category">
-                <option *ngFor="let cat of documentCategories" [value]="cat">{{ cat }}</option>
-              </select>
-            </td>
-            <td class="actions-cell">
-              <button class="remove-btn" (click)="removeStagedFile(i)">Remove</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    
-    <!-- Main Action Button -->
-    <div class="actions">
-      <button class="primary-action-btn" 
-              (click)="createSowProject()" 
-              [disabled]="stagedFiles.length === 0 || !projectName || isCreating">
-        {{ isCreating ? 'Creating Project...' : 'Create SOW Project & Upload Files' }}
-      </button>
-    </div>
+  <!-- Staged Files List - REPLACED TABLE WITH THIS LIST -->
+  <div class="staged-files" *ngIf="stagedFiles.length > 0">
+    <h3>Staged Documents</h3>
+    <ul class="staged-files-list">
+      <li *ngFor="let item of stagedFiles; let i = index">
+        <div class="file-details">
+          <span class="file-name">{{ item.file.name }}</span>
+          <select [(ngModel)]="item.category" class="category-select">
+            <option *ngFor="let cat of documentCategories" [value]="cat">{{ cat }}</option>
+          </select>
+        </div>
+        <button (click)="removeStagedFile(i)" class="remove-btn btn-secondary" title="Remove file">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </li>
+    </ul>
+  </div>
+  
+  <!-- Main Action Button -->
+  <div class="actions">
+    <button class="btn-primary" 
+            (click)="createSowProject()" 
+            [disabled]="stagedFiles.length === 0 || !projectName || isCreating">
+      {{ isCreating ? 'Creating Project...' : 'Create SOW Project & Upload Files' }}
+    </button>
   </div>
 </div>

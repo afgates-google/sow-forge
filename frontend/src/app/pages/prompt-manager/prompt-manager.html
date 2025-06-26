@@ -1,55 +1,65 @@
 <div class="page-container">
-  <!-- The <h2> and <p> are now OUTSIDE the main card, at the page level -->
-  <h2>Prompt Management</h2>
-  <p>Select a prompt to view and edit its content. The 'Preview' tab shows how Markdown will render.</p>
+  <h2>Prompt Manager</h2>
+  <p>Select a prompt from the list to view and edit its name or content.</p>
 
-  <div class="content-card">
-    <div *ngIf="isLoadingList">
-      <p>Loading available prompts...</p>
+  <div class="manager-layout">
+    <!-- Left Column: List of all prompts -->
+    <div class="prompt-list-panel">
+      <h3>Available Prompts</h3>
+      <div *ngIf="isLoadingList">Loading...</div>
+      <ul class="prompt-list">
+        <li *ngFor="let p of prompts" 
+            [class.active]="p.id === selectedPromptId" 
+            (click)="selectPrompt(p.id)">
+          
+          <!-- View Mode (This is the corrected part) -->
+          <div *ngIf="editingPromptId !== p.id" class="item-view">
+            <span>{{ p.name }}</span>
+            <span class="material-symbols-outlined edit-icon" 
+                  (click)="startPromptNameEdit(p, $event)" 
+                  title="Rename prompt">
+              edit_square
+            </span>
+          </div>
+
+          <!-- Edit Mode for Renaming -->
+          <div *ngIf="editingPromptId === p.id" class="edit-form-inline">
+            <input type="text" [(ngModel)]="p.name" 
+                   (click)="$event.stopPropagation()"
+                   (keyup.enter)="savePromptName(p)" 
+                   (keyup.escape)="cancelPromptNameEdit(p)">
+            <button class="save-btn" (click)="savePromptName(p)" title="Save">
+              <span class="material-symbols-outlined">check</span>
+            </button>
+            <button class="cancel-btn" (click)="cancelPromptNameEdit(p)" title="Cancel">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        </li>
+      </ul>
     </div>
 
-    <div *ngIf="!isLoadingList">
-      <!-- Prompt Selection Dropdown -->
-      <div class="form-group">
-        <label for="prompt-select">Select a Prompt to Edit</label>
-        <select id="prompt-select" [(ngModel)]="selectedPromptId" (change)="onPromptSelected()">
-          <option *ngFor="let prompt of prompts" [value]="prompt.id">
-            {{ prompt.name || prompt.id }}
-          </option>
-        </select>
+    <!-- Right Column: Editor for the selected prompt -->
+    <div class="prompt-editor-panel">
+      <div *ngIf="!selectedPromptId" class="placeholder-text">
+        <p>Select a prompt to begin editing.</p>
       </div>
-
-      <!-- Tab Navigation -->
-      <div class="tab-nav">
-        <button class="tab-button" [class.active]="activeTab === 'write'" (click)="activeTab = 'write'">
-          Write
-        </button>
-        <button class="tab-button" [class.active]="activeTab === 'preview'" (click)="activeTab = 'preview'">
-          Preview
-        </button>
-      </div>
-
-      <!-- Tabbed Editor Content -->
-      <div class="editor-content">
+      
+      <div *ngIf="selectedPromptId">
+        <h3>Edit Prompt Content</h3>
         <div *ngIf="isLoadingPrompt" class="loading-prompt">Loading content...</div>
+        <textarea *ngIf="!isLoadingPrompt" 
+                  id="prompt-text" 
+                  class="prompt-textarea" 
+                  [(ngModel)]="editablePromptText"
+                  placeholder="Enter the AI prompt text here..."></textarea>
         
-        <textarea 
-          *ngIf="!isLoadingPrompt && activeTab === 'write'" 
-          class="prompt-editor" 
-          [(ngModel)]="editablePromptText">
-        </textarea>
-        
-        <div *ngIf="!isLoadingPrompt && activeTab === 'preview'" class="markdown-preview">
-          <markdown [data]="editablePromptText"></markdown>
+        <div class="actions">
+          <button (click)="savePrompt()" [disabled]="isPristine() || isSaving">
+            {{ isSaving ? 'Saving...' : 'Save Content' }}
+          </button>
+          <span class="status-message">{{ statusMessage }}</span>
         </div>
-      </div>
-
-      <!-- Action Bar -->
-      <div class="actions">
-        <button (click)="savePrompt()" [disabled]="isPristine() || isSaving">
-          {{ isSaving ? 'Saving...' : 'Save Changes' }}
-        </button>
-        <span class="status-message">{{ statusMessage }}</span>
       </div>
     </div>
   </div>

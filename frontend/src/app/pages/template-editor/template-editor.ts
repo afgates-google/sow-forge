@@ -36,8 +36,15 @@ export class TemplateEditorComponent implements OnInit {
 
   saveTemplate(): void {
     this.statusMessage = 'Saving...';
-    this.apiService.updateTemplate(this.templateId, this.editableContent).subscribe(() => {
+    
+    // --- THIS IS THE FIX ---
+    // We now pass an object with the markdownContent property,
+    // matching the new ApiService method signature.
+    const updateData = { markdownContent: this.editableContent };
+    
+    this.apiService.updateTemplate(this.templateId, updateData).subscribe(() => {
       this.statusMessage = `Saved successfully at ${new Date().toLocaleTimeString()}`;
+      setTimeout(() => this.statusMessage = '', 3000);
     });
   }
 }

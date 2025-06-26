@@ -1,13 +1,19 @@
-<header class="app-header">
-  <nav class="app-container">
-    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Create New SOW</a>
-    <a routerLink="/history" routerLinkActive="active">Document Dashboard</a>
-    <a routerLink="/templates" routerLinkActive="active">Template Management</a>
-    <a routerLink="/prompts" routerLinkActive="active">Prompt Management</a>
-    <a routerLink="/settings" routerLinkActive="active">Settings</a>
-  </nav>
+<header class="main-header">
+  <!-- NEW: Add this wrapper div -->
+  <div class="header-content">
+    <div class="logo">
+      <h1>SOW-Forge</h1>
+    </div>
+    <nav class="main-nav">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Create New SOW</a>
+      <a routerLink="/history" routerLinkActive="active">Dashboard</a>
+      <a routerLink="/templates" routerLinkActive="active">Template Manager</a>
+      <a routerLink="/prompts" routerLinkActive="active">Prompt Manager</a>
+      <a routerLink="/settings" routerLinkActive="active">Settings</a>
+    </nav>
+  </div>
 </header>
 
-<main class="app-container">
+<main class="main-content">
   <router-outlet></router-outlet>
 </main>

@@ -1,45 +1,50 @@
 <div class="page-container">
   <h2>SOW Projects History</h2>
-  <p>View, manage, and track the status of all course. That's the perfect final touch to complete the UI consistency. We your past and in-progress SOW projects.</p>
 
+  <!-- Card shown when there are no projects -->
+  <div *ngIf="projects.length === 0 && !isLoading" class="no-projects-card">
+    <span class="material-symbols-outlined icon-large">folder_off</span>
+    <p>You haven't created any SOW projects yet.</p>
+    <a routerLink="/" class="btn-primary">Create a New SOW Project</a>
+  </div>
+
+  <!-- List of project cards -->
+  <div class="project-list" *ngIf="projects.length > 0">
+    <div class="project-card" *ngFor="let project of projects">
+      <div class="project-info">
+        <div class="project-name-line">
+          <span class="project-status-dot" [ngClass]="project.status.toLowerCase().replace('_', '-')"></span>
+          <a class="project-name" [routerLink]="['/projects', project.id]" *ngIf="editingProjectId !== project.id">
+            {{ project.projectName }}
+          </a>
+          <div *ngIf="editingProjectId === project.id" class="edit-form-inline">
+            <input type="text" [(ngModel)]="project.projectName" (keyup.enter)="saveProjectName(project)" (keyup.escape)="cancelProjectNameEdit(project)" (click)="$event.stopPropagation()">
+            <button class="save-btn" (click)="saveProjectName(project)"><span class="material-symbols-outlined">check</span></button>
+            <button class="cancel-btn" (click)="cancelProjectNameEdit(project)"><span class="material-symbols-outlined">close</span></button>
+          </div>
+          <span class="material-symbols-outlined edit-icon" *ngIf="editingProjectId !== project.id" (click)="startProjectNameEdit(project, $event)">
+            edit_square
+          </span>
+        </div>
+        <div class="project-meta">
+          <span>ID: {{ project.id }}</span>
+          <span>Created: {{ project.createdAt | date:'short' }}</span>
+        </div>
+      </div>
+      <div class="project-actions">
+        <button class="action-btn-primary" (click)="viewProject(project.id, project.status)">
+          {{ project.status === 'SOW_GENERATED' ? 'View SOW' : 'View Status' }}
+          <span class="material-symbols-outlined">arrow_forward</span>
+        </button>
+        <button class="action-btn-icon" (click)="deleteProject(project.id, project.projectName)" title="Delete Project">
+          <span class="material-symbols-outlined">delete</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading indicator -->
   <div *ngIf="isLoading" class="loading-indicator">
     <p>Loading projects...</p>
-  </div>
-
-  <div *ngIf="!isLoading && projects.length === 0" class="no-content-card">
-    <p>You haven't created any SOW projects yet.</p>
-    <a routerLink="/" class="primary-action-btn">Create a New SOW Project</a>
-  </div>
-
-  <div *ngIf="!isLoading && projects.length > 0" class="content-card">
-    <table>
-      <thead>
-        <tr>
-          <th>Project Name</th>
-          <th>Status</th>
-          <th>Created On</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let project of projects">
-          <td>
-            <a [routerLink]="['/projects', project.id]" class="project-link">{{ project.projectName }}</a>
-          </td>
-          <td>
-            <span class="status-tag" [ngClass]="project.status.toLowerCase().replace('_', '-')">{{ project.status }}</span>
-          </td>
-          <td>{{ project.createdAt | date:'short' }}</td>
-          <td class="actions-cell">
-            <button class="action-btn" (click)="viewProject(project.id, project.status)">
-              {{ project.status === 'SOW_GENERATED' ? 'View SOW' : 'View Status' }}
-            </button>
-            <button class="action-btn delete-btn" (click)="deleteProject(project.id, project.projectName)">
-              Delete
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
   </div>
 </div>

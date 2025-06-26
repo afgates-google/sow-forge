@@ -4,7 +4,7 @@ import { ApiService } from '../../services/api.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
-import { switchMap, map } from 'rxjs/operators';
+import { switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-template-manager',
@@ -21,6 +21,10 @@ export class TemplateManagerComponent implements OnInit {
   newTemplateDescription = '';
   stagedFiles: File[] = [];
   isCreating = false;
+
+  // --- State for inline editing of existing templates ---
+  editingTemplateId: string | null = null;
+  templateNameBeforeEdit = '';
 
   constructor(private apiService: ApiService, private router: Router) { }
 
@@ -42,12 +46,12 @@ export class TemplateManagerComponent implements OnInit {
     }
   }
 
-  // --- New Template Creation Logic ---
-  
+  // --- Methods for creating a new template ---
   onFileSelected(event: Event): void {
-    const files = (event.target as HTMLInputElement).files;
-    if (files) {
-      this.stagedFiles.push(...Array.from(files));
+    const input = event.target as HTMLInputElement;
+    if (input.files) {
+      this.stagedFiles.push(...Array.from(input.files));
+      input.value = ''; // Allow selecting the same file again
     }
   }
 
@@ -61,22 +65,18 @@ export class TemplateManagerComponent implements OnInit {
     }
     this.isCreating = true;
 
-    // Step 1: Get signed URLs for all staged files
     const uploadObservables = this.stagedFiles.map(file => 
       this.apiService.getUploadUrl(file.name, file.type, 'templates')
     );
 
     forkJoin(uploadObservables).pipe(
-      // Step 2: Upload the files to GCS
       switchMap((responses: any[]) => {
         const uploadPromises = responses.map((res, index) => 
           fetch(res.url, { method: 'PUT', body: this.stagedFiles[index] })
         );
-        // We also need the GCS paths for the next step
         const gcsPaths = responses.map(res => res.gcsPath);
-        return Promise.all(uploadPromises).then(() => gcsPaths); // Pass paths to the next step
+        return Promise.all(uploadPromises).then(() => gcsPaths);
       }),
-      // Step 3: Trigger the backend template generation function
       switchMap((gcsPaths: string[]) => {
         return this.apiService.createTemplateFromSamples(
           this.newTemplateName, 
@@ -103,5 +103,27 @@ export class TemplateManagerComponent implements OnInit {
     this.newTemplateName = '';
     this.newTemplateDescription = '';
     this.stagedFiles = [];
+  }
+
+  // --- Methods to handle inline renaming of existing templates ---
+  startTemplateNameEdit(template: any, event: MouseEvent): void {
+    event.stopPropagation();
+    this.editingTemplateId = template.id;
+    this.templateNameBeforeEdit = template.name;
+  }
+
+  cancelTemplateNameEdit(template: any): void {
+    template.name = this.templateNameBeforeEdit;
+    this.editingTemplateId = null;
+  }
+
+  saveTemplateName(template: any): void {
+    if (template.name === this.templateNameBeforeEdit) {
+      this.editingTemplateId = null;
+      return;
+    }
+    this.apiService.updateTemplate(template.id, { name: template.name }).subscribe(() => {
+      this.editingTemplateId = null;
+    });
   }
 }
