@@ -1,0 +1,20 @@
+# .gcloudignore
+# This file tells the gcloud CLI which files to ignore when deploying.
+
+# Ignore all dotfiles (like .git, .vscode)
+.gcloudignore
+.gitignore
+.vscode/
+
+# Ignore the Terraform infrastructure code. It's not part of the app.
+terraform/
+
+# Ignore the Python Cloud Functions source code. This is deployed separately.
+functions/
+
+# Ignore Node.js development dependencies
+node_modules/
+
+# Ignore any local log files or build artifacts
+*.log
+dist/
