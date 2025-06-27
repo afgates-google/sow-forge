@@ -108,37 +108,64 @@ body {
   width: 100%;
 }
 
-/* --- Global Styles for Inline Action Icon Buttons --- */
+/* --- Global Styles for Inline Editing --- */
 
-/* Base style for icon-only buttons */
-.save-btn, .cancel-btn, .remove-btn {
+/* The div that holds the input and icon buttons */
+.edit-form-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+}
+.edit-form-inline input[type="text"] {
+  padding: 0.2rem 0.4rem;
+  border: 1px solid #2b6cb0; /* Highlight the input when editing */
+  border-radius: 4px;
+  font-size: inherit;
+  flex-grow: 1; /* Allow the input to take up available space */
+}
+
+/* The subtle 'edit' icon that starts the process */
+.edit-icon {
+  font-size: 20px;
+  color: #a0aec0;
+  vertical-align: middle;
+  margin-left: 0.5rem;
+  cursor: pointer;
+  transition: color 0.2s ease-in-out;
+  user-select: none; 
+}
+.edit-icon:hover {
+  color: #2b6cb0;
+}
+
+/* Base style for icon-only action buttons */
+.save-btn, .cancel-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.2rem;
-  border-radius: 50%; /* Makes the hover background circular */
+  padding: 0.3rem;
+  border-radius: 50%;
   transition: background-color 0.2s ease-in-out;
 }
 
-/* Style the icon itself */
+/* Style the icon itself inside the button */
 .save-btn .material-symbols-outlined,
-.cancel-btn .material-symbols-outlined,
-.remove-btn .material-symbols-outlined {
+.cancel-btn .material-symbols-outlined {
   font-size: 22px;
   vertical-align: middle;
 }
 
-/* Specific colors */
-.save-btn .material-symbols-outlined { color: #38a169; /* Green */ }
-.cancel-btn .material-symbols-outlined { color: #e53e3e; /* Red */ }
-.remove-btn .material-symbols-outlined { color: #718096; /* Gray */ }
+/* Specific colors for save/cancel */
+.save-btn .material-symbols-outlined { color: #38a169; } /* Green */
+.cancel-btn .material-symbols-outlined { color: #e53e3e; } /* Red */
 
-/* Hover effects */
+/* Hover effects for save/cancel */
 .save-btn:hover { background-color: #c6f6d5; }
-.cancel-btn:hover, .remove-btn:hover { background-color: #fed7d7; }
+.cancel-btn:hover { background-color: #fed7d7; }
 
 /* In the staged files list, make the remove icon smaller */
 .staged-files-list .remove-btn .material-symbols-outlined {

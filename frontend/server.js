@@ -212,6 +212,55 @@ app.post('/api/projects/:projectId/documents/:docId/regenerate', async (req, res
   }
 });
 
+/**
+ * Triggers re-analysis for a single source document.
+ * It does this by updating the GCS object's metadata, which will
+ * re-trigger the 'doc_preprocess_trigger' function for that file.
+ */
+app.post('/api/projects/:projectId/source_documents/:docId/regenerate', async (req, res) => {
+  try {
+    const { projectId, docId } = req.params;
+    const docRef = firestore.collection('sow_projects').doc(projectId).collection('source_documents').doc(docId);
+    
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      return res.status(404).send({ message: 'Source document not found.' });
+    }
+    const docData = doc.data();
+
+    // The gcsPath was saved during the initial processing
+    const gcsPath = docData.gcsPath;
+    if (!gcsPath) {
+      return res.status(400).send({ message: 'GCS path for document not found, cannot regenerate.' });
+    }
+
+    // gcsPath is like "gs://bucket-name/projectId/docId/filename.pdf"
+    // We need to extract the bucket name and the object path
+    const [_, __, bucketName, ...objectPathParts] = gcsPath.split('/');
+    const objectPath = objectPathParts.join('/');
+
+    const file = storage.bucket(bucketName).file(objectPath);
+    const [exists] = await file.exists();
+    if (!exists) {
+      return res.status(404).send({ message: 'Original file not found in GCS.' });
+    }
+    
+    // Update the document status first
+    await docRef.update({ 
+      status: 'RE_ANALYZING',
+      lastUpdatedAt: FieldValue.serverTimestamp() 
+    });
+    
+    // Now, trigger the function by updating the GCS metadata
+    await file.setMetadata({ metadata: { regenerated_at: new Date().toISOString() }});
+    
+    res.status(200).send({ message: 'Re-analysis pipeline triggered successfully.' });
+  } catch (error) {
+    console.error('!!! Error re-triggering pipeline:', error.message);
+    res.status(500).send({ message: 'Could not re-trigger pipeline.' });
+  }
+});
+
 // --- Add these to server.js ---
 
 /**

@@ -46,17 +46,13 @@ export class ApiService {
     return this.http.get<any>(`/api/projects/${projectId}/documents/${docId}`);
   }
 
-  /**
-   * Triggers the re-analysis pipeline for a single source document.
-   * @param projectId The ID of the parent project.
-   * @param docId The ID of the source document to regenerate.
-   */
+  // Add this method to your ApiService class
   regenerateAnalysis(projectId: string, docId: string): Observable<any> {
-    return this.http.post(`/api/projects/${projectId}/documents/${docId}/regenerate`, {});
+    // The body is empty, we just need to POST to the URL
+    return this.http.post(`/api/projects/${projectId}/source_documents/${docId}/regenerate`, {});
   }
 
-  // Add this method to your ApiService class
-  updateSourceDocument(projectId: string, docId: string, data: { displayName: string }): Observable<any> {
+  updateSourceDocument(projectId: string, docId: string, data: { displayName?: string, category?: string }): Observable<any> {
     return this.http.put(`/api/projects/${projectId}/source_documents/${docId}`, data);
   }
   // --- Google Doc Management ---

@@ -1,95 +1,126 @@
-.page-container {
+/* --- Main Page & Header Styles --- */
+.status-container {
+  max-width: 900px;
+  margin: 2rem auto;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
-
-h2 {
-  color: #1a202c;
-  margin-bottom: 0.25rem;
+.project-header h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.project-subtitle {
-  color: #4a5568;
-  margin-bottom: 2rem;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 1rem;
-}
+/* --- Document List --- */
+.documents-list-container { margin-top: 1.5rem; }
 
-.content-card {
-  background-color: #ffffff;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-h3 {
-  color: #2d3748;
-  margin: 0 0 0.5rem 0;
-}
-
-.info-text {
-  color: #718096;
-  font-size: 0.9rem;
-  margin-bottom: 1.5rem;
-}
-
-/* --- Table Styles (Consistent with Dashboard) --- */
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th, td {
+/* Base for Header and Data rows */
+.list-header, .document-row {
+  display: flex;
+  justify-content: space-between; /* This is KEY: pushes left and right columns apart */
+  align-items: center;
+  gap: 1rem;
   padding: 0.75rem 1rem;
-  text-align: left;
-  border-bottom: 1px solid #edf2f7;
-  vertical-align: middle;
 }
 
-thead th {
+/* Header Row Specifics */
+.list-header {
   font-weight: 600;
   color: #4a5568;
+  font-size: 0.8rem;
   text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  background-color: #f7fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+.header-left {
+  display: flex;
+  flex-grow: 1;
+}
+.header-left span:first-child { flex-basis: 60%; }
+.header-left span:last-child { flex-basis: 40%; }
+.header-right {
+  display: flex;
+  flex-basis: 250px; /* Fixed width for status and actions */
+  justify-content: space-between;
+}
+.header-right span:first-child { flex-basis: 150px; text-align: center; }
+.header-right span:last-child { flex-basis: 50px; text-align: right; }
+
+
+/* Data Row Specifics */
+.document-row {
+  background-color: #fff;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  border: 1px solid #e2e8f0;
 }
 
-/* --- Status Tag Styles (Consistent with Dashboard) --- */
-.status-tag {
-  display: inline-block;
+/* The left group (name + category) */
+.col-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-grow: 1;
+  min-width: 0;
+}
+.name-container {
+  flex-basis: 60%;
+  min-width: 0;
+}
+.category-container {
+  flex-basis: 40%;
+}
+
+/* The right group (status + actions) */
+.col-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-basis: 250px; /* Match header width */
+  flex-shrink: 0;
+}
+.status-container-inner {
+  flex-basis: 150px;
+  text-align: center;
+}
+.actions-container {
+  flex-basis: 50px;
+  text-align: right;
+}
+
+/* --- Content & Form Styling --- */
+.name-view { display: flex; align-items: center; justify-content: space-between; }
+.file-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.category-select { width: 100%; padding: 0.4rem; border-radius: 6px; border: 1px solid #cbd5e0; }
+
+/* --- Status Pill Styling (Preserving your original styles) --- */
+.status-pill {
   padding: 0.2rem 0.6rem;
-  border-radius: 4px;
+  border-radius: 9999px; /* Pill shape */
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
-.sow_generated, .analyzed_success, .analysis_complete { background-color: #c6f6d5; color: #22543d; }
-.analyzing, .processing_ocr, .drafting { background-color: #bee3f8; color: #2c5282; }
-.analysis_failed, .ocr_failed { background-color: #fed7d7; color: #822727; }
-.pending_upload { background-color: #e2e8f0; color: #4a5568; }
+/* Your original status colors */
+.analyzed-success { background-color: #c6f6d5; color: #22543d; }
+.processing-ocr, .analyzing { background-color: #bee3f8; color: #2c5282; }
+.analysis-failed, .ocr-failed { background-color: #fed7d7; color: #822727; }
+.pending-upload { background-color: #e2e8f0; color: #4a5568; }
 
-
-/* --- Actions Styles (Consistent with Dashboard) --- */
-.actions-cell {
-  text-align: right;
-}
-
-.action-btn {
-  padding: 0.3rem 0.8rem;
-  text-decoration: none;
-  border-radius: 4px;
-  border: 1px solid #cbd5e0;
-  background-color: #fff;
-  color: #2d3748;
+/* --- Action Buttons --- */
+.action-btn-icon {
+  display: inline-flex;
+  padding: 0.5rem;
+  border: none;
+  background: none;
+  border-radius: 50%;
   cursor: pointer;
-  font-size: 0.9rem;
+  color: #718096;
 }
-
-.action-btn:hover {
+.action-btn-icon:hover {
   background-color: #edf2f7;
+  color: #2b6cb0;
 }
 
 /* --- Generation Controls (Consistent with Forms) --- */
@@ -148,43 +179,19 @@ thead th {
   border: 1px solid #fed7d7;
   border-radius: 8px;
 }
+
+/* --- YOUR PULSE ANIMATION (PRESERVED) --- */
 .re_analyzing {
-  background-color: #bee3f8; /* Same as other 'in-progress' states */
+  background-color: #bee3f8;
   color: #2c5282;
-}
-/* Style for the new status tag */
-.re_analyzing {
-  background-color: #bee3f8; /* Same as other 'in-progress' states */
-  color: #2c5282;
-  animation: pulse 1.5s infinite;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Style for the regenerate button */
-.regenerate-btn {
-  color: #dd6b20; /* An orange/amber color to stand out */
-  border-color: #feebc8;
-}
-
-.regenerate-btn:hover {
-  background-color: #fefcbf;
-}
-
-.regenerate-btn:disabled {
-  color: #a0aec0;
-  border-color: #e2e8f0;
-  background-color: #f7fafc;
-  cursor: not-allowed;
-}
-
-/* A simple pulse animation for the re-analyzing status */
 @keyframes pulse {
-  0% {
+  0%, 100% {
     opacity: 1;
   }
   50% {
-    opacity: 0.6;
-  }
-  100% {
-    opacity: 1;
+    opacity: .5;
   }
 }

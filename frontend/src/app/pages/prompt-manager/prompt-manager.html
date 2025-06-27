@@ -11,30 +11,21 @@
         <li *ngFor="let p of prompts" 
             [class.active]="p.id === selectedPromptId" 
             (click)="selectPrompt(p.id)">
-          
-          <!-- View Mode (This is the corrected part) -->
-          <div *ngIf="editingPromptId !== p.id" class="item-view">
-            <span>{{ p.name }}</span>
-            <span class="material-symbols-outlined edit-icon" 
-                  (click)="startPromptNameEdit(p, $event)" 
-                  title="Rename prompt">
-              edit_square
-            </span>
+          <div *ngIf="editingPromptId !== p.id; else editPromptBlock">
+            <div class="item-view">
+              <span>{{ p.name }}</span>
+              <span class="material-symbols-outlined edit-icon" (click)="startPromptNameEdit(p, $event)" title="Rename prompt">
+                edit_square
+              </span>
+            </div>
           </div>
-
-          <!-- Edit Mode for Renaming -->
-          <div *ngIf="editingPromptId === p.id" class="edit-form-inline">
-            <input type="text" [(ngModel)]="p.name" 
-                   (click)="$event.stopPropagation()"
-                   (keyup.enter)="savePromptName(p)" 
-                   (keyup.escape)="cancelPromptNameEdit(p)">
-            <button class="save-btn" (click)="savePromptName(p)" title="Save">
-              <span class="material-symbols-outlined">check</span>
-            </button>
-            <button class="cancel-btn" (click)="cancelPromptNameEdit(p)" title="Cancel">
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </div>
+          <ng-template #editPromptBlock>
+            <div class="edit-form-inline">
+              <input type="text" [(ngModel)]="p.name" (click)="$event.stopPropagation()" (keyup.enter)="savePromptName(p)" (keyup.escape)="cancelPromptNameEdit(p)">
+              <button class="save-btn" (click)="savePromptName(p)" title="Save"><span class="material-symbols-outlined">check</span></button>
+              <button class="cancel-btn" (click)="cancelPromptNameEdit(p)" title="Cancel"><span class="material-symbols-outlined">close</span></button>
+            </div>
+          </ng-template>
         </li>
       </ul>
     </div>

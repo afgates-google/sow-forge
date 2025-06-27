@@ -1,99 +1,106 @@
-<div class="page-container">
+<div class="status-container">
+  <!-- Show loading indicator only while fetching initial data -->
   <div *ngIf="isLoading" class="loading-indicator">
     <p>Loading project details...</p>
   </div>
 
-  <div *ngIf="errorMessage" class="error-message">
-    <p>{{ errorMessage }}</p>
+  <!-- Main content, shown only after initial load and if a project exists -->
+  <div *ngIf="!isLoading && project">
+    <div class="project-header">
+      <div *ngIf="!isEditingProjectName; else editProjectNameBlock">
+        <h2>
+          SOW Project: {{ project.projectName }}
+          <span class="material-symbols-outlined edit-icon" (click)="startProjectNameEdit()">edit_square</span>
+        </h2>
+      </div>
+      <ng-template #editProjectNameBlock>
+        <div class="edit-form">
+          <input type="text" [(ngModel)]="project.projectName" (keyup.enter)="saveProjectName()" (keyup.escape)="cancelProjectNameEdit()">
+          <button class="save-btn" (click)="saveProjectName()"><span class="material-symbols-outlined">check</span></button>
+          <button class="cancel-btn" (click)="cancelProjectNameEdit()"><span class="material-symbols-outlined">close</span></button>
+        </div>
+      </ng-template>
+    </div>
+    <p><strong>Overall Status:</strong> <span class="status-tag">{{ isAnalysisComplete ? 'ANALYSIS_COMPLETE' : project.status }}</span></p>
+
+    <!-- In project-status.component.html -->
+    
+    <h3>Source Documents</h3>
+<p>Monitoring analysis progress. This page will auto-refresh every 5 seconds.</p>
+
+<div class="documents-list-container">
+  <!-- Header Row for Titles -->
+  <div class="list-header">
+    <div class="header-left">
+      <span>Document Name</span>
+      <span>Category</span>
+    </div>
+    <div class="header-right">
+      <span>Status</span>
+      <span>Actions</span>
+    </div>
   </div>
 
-  <div *ngIf="!isLoading && project">
-    <!-- Find the h2 element and replace it with this block -->
-    <div class="project-header">
-      <h2 *ngIf="!isEditingProjectName">
-        SOW Project: {{ project.projectName }}
-        <span class="material-symbols-outlined edit-icon" (click)="startProjectNameEdit()" title="Rename Project">
-          edit_square
-        </span>
-      </h2>
-      <div *ngIf="isEditingProjectName" class="edit-form">
-        <input type="text" [(ngModel)]="project.projectName" (keyup.enter)="saveProjectName()" (keyup.escape)="cancelProjectNameEdit()" />
-        <!-- REPLACED BUTTONS -->
-        <button class="save-btn" (click)="saveProjectName()" title="Save">
-          <span class="material-symbols-outlined">check</span>
-        </button>
-        <button class="cancel-btn" (click)="cancelProjectNameEdit()" title="Cancel">
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-    </div>
-    <p class="project-subtitle">
-      <strong>Overall Status:</strong>
-      <span class="status-tag" [ngClass]="project.status.toLowerCase().replace('_', '-')">{{ project.status }}</span>
-    </p>
-
-    <div class="content-card">
-      <h3>Source Documents</h3>
-      <p class="info-text">Monitoring analysis progress. This page will auto-refresh every 5 seconds.</p>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Document Name</th> <!-- Change header -->
-          <th>Category</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let doc of project.sourceDocuments">
-          <td>
-            <span *ngIf="editingDocId !== doc.id" class="name-display">
-              {{ doc.displayName }}
-              <span class="material-symbols-outlined edit-icon" (click)="startDocNameEdit(doc)" title="Rename Document">
-                edit_square
-              </span>
-            </span>
-            <div *ngIf="editingDocId === doc.id" class="edit-form">
-              <input type="text" [(ngModel)]="doc.displayName" (keyup.enter)="saveDocName(doc)" (keyup.escape)="cancelDocNameEdit(doc)">
-              <!-- REPLACED BUTTONS -->
-              <button class="save-btn" (click)="saveDocName(doc)" title="Save">
-                <span class="material-symbols-outlined">check</span>
-              </button>
-              <button class="cancel-btn" (click)="cancelDocNameEdit(doc)" title="Cancel">
-                <span class="material-symbols-outlined">close</span>
-              </button>
-            </div>
-          </td>
-          <td>{{ doc.category }}</td>
-          <td>
-            <span class="status-tag" [ngClass]="doc.status.toLowerCase().replace('_', '-')">{{ doc.status }}</span>
-          </td>
-          <td class="actions-cell">
-            <a *ngIf="doc.status === 'ANALYZED_SUCCESS'" [routerLink]="['/projects', project.id, 'documents', doc.id]" class="action-btn">
-              View Analysis
-            </a>
-            <button *ngIf="doc.status === 'ANALYZED_SUCCESS' || doc.status === 'ANALYSIS_FAILED'" (click)="regenerateAnalysis(doc)" [disabled]="doc.isRegenerating" class="action-btn regenerate-btn">
-              {{ doc.isRegenerating ? 'Regenerating...' : 'Regenerate' }}
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-      <!-- SOW Generation Controls -->
-      <div *ngIf="isAnalysisComplete" class="generation-controls">
-        <h3>Generate Statement of Work</h3>
-        <div class="control-group">
-          <label for="template">Select SOW Template:</label>
-          <select id="template" [(ngModel)]="selectedTemplateId">
-            <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
-          </select>
+  <!-- Data Rows (Looped) -->
+  <div class="document-row" *ngFor="let doc of project.sourceDocuments">
+    
+    <!-- Group 1: Name & Category (Left Aligned) -->
+    <div class="col-left">
+      <!-- Name (with inline edit) -->
+      <div class="name-container">
+        <div *ngIf="editingDocId !== doc.id; else editDocBlock">
+          <div class="name-view">
+            <span class="file-name">{{ doc.displayName }}</span>
+            <span class="material-symbols-outlined edit-icon" (click)="startDocNameEdit(doc)">edit_square</span>
+          </div>
         </div>
-        <button class="primary-action-btn" (click)="triggerSowGeneration()" [disabled]="!selectedTemplateId || isGenerating">
-          {{ isGenerating ? 'Generating SOW...' : 'Generate SOW' }}
+        <ng-template #editDocBlock>
+          <div class="edit-form-inline">
+            <input type="text" [(ngModel)]="doc.displayName" (keyup.enter)="saveDocChanges(doc)" (keyup.escape)="cancelDocNameEdit(doc)">
+            <button class="save-btn" (click)="saveDocChanges(doc)"><span class="material-symbols-outlined">check</span></button>
+            <button class="cancel-btn" (click)="cancelDocNameEdit(doc)"><span class="material-symbols-outlined">close</span></button>
+          </div>
+        </ng-template>
+      </div>
+      
+      <!-- Category Dropdown -->
+      <div class="category-container">
+        <select [(ngModel)]="doc.category" (change)="saveDocChanges(doc)" class="category-select">
+          <option *ngFor="let cat of documentCategories" [value]="cat">{{ cat }}</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Group 2: Status & Actions (Right Aligned) -->
+    <div class="col-right">
+      <div class="status-container-inner">
+        <span class="status-pill" [ngClass]="doc.status.toLowerCase().replace('_', '-')">{{ doc.status }}</span>
+      </div>
+      <div class="actions-container">
+        <button class="action-btn-icon" (click)="triggerRegenerate(doc)" title="Regenerate Analysis">
+          <span class="material-symbols-outlined">restart_alt</span>
         </button>
       </div>
     </div>
+  </div>
+    
+    <!-- SOW Generation Controls -->
+    <div class="generation-controls" *ngIf="isAnalysisComplete">
+      <h3>Generate Statement of Work</h3>
+      <div class="control-group">
+        <label for="template">Select SOW Template:</label>
+        <select id="template" [(ngModel)]="selectedTemplateId">
+          <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
+        </select>
+      </div>
+      <button (click)="triggerSowGeneration()" [disabled]="!selectedTemplateId || isGenerating" class="btn-primary">
+        {{ isGenerating ? 'Generating SOW...' : 'Generate SOW' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Show error message if something went wrong -->
+  <div *ngIf="errorMessage" class="error-message">
+    <p>Error: {{ errorMessage }}</p>
   </div>
 </div>

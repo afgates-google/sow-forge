@@ -14,17 +14,25 @@
       <div class="project-info">
         <div class="project-name-line">
           <span class="project-status-dot" [ngClass]="project.status.toLowerCase().replace('_', '-')"></span>
-          <a class="project-name" [routerLink]="['/projects', project.id]" *ngIf="editingProjectId !== project.id">
-            {{ project.projectName }}
-          </a>
-          <div *ngIf="editingProjectId === project.id" class="edit-form-inline">
-            <input type="text" [(ngModel)]="project.projectName" (keyup.enter)="saveProjectName(project)" (keyup.escape)="cancelProjectNameEdit(project)" (click)="$event.stopPropagation()">
-            <button class="save-btn" (click)="saveProjectName(project)"><span class="material-symbols-outlined">check</span></button>
-            <button class="cancel-btn" (click)="cancelProjectNameEdit(project)"><span class="material-symbols-outlined">close</span></button>
+          <!-- This is the main conditional block for view/edit mode -->
+          <div *ngIf="editingProjectId !== project.id; else editProjectBlock">
+            <!-- View Mode -->
+            <a class="project-name" [routerLink]="['/projects', project.id]">
+              {{ project.projectName }}
+            </a>
+            <span class="material-symbols-outlined edit-icon" (click)="startProjectNameEdit(project, $event)" title="Rename Project">
+              edit_square
+            </span>
           </div>
-          <span class="material-symbols-outlined edit-icon" *ngIf="editingProjectId !== project.id" (click)="startProjectNameEdit(project, $event)">
-            edit_square
-          </span>
+
+          <!-- Edit Mode Template -->
+          <ng-template #editProjectBlock>
+            <div class="edit-form-inline">
+              <input type="text" [(ngModel)]="project.projectName" (keyup.enter)="saveProjectName(project)" (keyup.escape)="cancelProjectNameEdit(project)" (click)="$event.stopPropagation()">
+              <button class="save-btn" (click)="saveProjectName(project)" title="Save"><span class="material-symbols-outlined">check</span></button>
+              <button class="cancel-btn" (click)="cancelProjectNameEdit(project)" title="Cancel"><span class="material-symbols-outlined">close</span></button>
+            </div>
+          </ng-template>
         </div>
         <div class="project-meta">
           <span>ID: {{ project.id }}</span>

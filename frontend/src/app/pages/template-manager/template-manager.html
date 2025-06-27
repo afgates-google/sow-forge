@@ -55,22 +55,23 @@
       <tbody>
         <!-- THIS IS THE CORRECTED TABLE ROW -->
         <tr *ngFor="let t of templates">
+          <!-- In template-manager.component.html's table -->
           <td>
-            <div class="name-cell">
-              <span *ngIf="editingTemplateId !== t.id">{{ t.name }}</span>
-              <div *ngIf="editingTemplateId === t.id" class="edit-form-inline">
-                  <input type="text" [(ngModel)]="t.name" (keyup.enter)="saveTemplateName(t)" (keyup.escape)="cancelTemplateNameEdit(t)">
-                  <button class="save-btn" (click)="saveTemplateName(t)" title="Save">
-                    <span class="material-symbols-outlined">check</span>
-                  </button>
-                  <button class="cancel-btn" (click)="cancelTemplateNameEdit(t)" title="Cancel">
-                    <span class="material-symbols-outlined">close</span>
-                  </button>
+            <div *ngIf="editingTemplateId !== t.id; else editTemplateBlock">
+              <div class="name-cell">
+                <span>{{ t.name }}</span>
+                <span class="material-symbols-outlined edit-icon" (click)="startTemplateNameEdit(t, $event)" title="Rename Template">
+                  edit_square
+                </span>
               </div>
-              <span class="material-symbols-outlined edit-icon" *ngIf="editingTemplateId !== t.id" (click)="startTemplateNameEdit(t, $event)" title="Rename Template">
-                edit_square
-              </span>
             </div>
+            <ng-template #editTemplateBlock>
+              <div class="edit-form-inline">
+                  <input type="text" [(ngModel)]="t.name" (keyup.enter)="saveTemplateName(t)" (keyup.escape)="cancelTemplateNameEdit(t)">
+                  <button class="save-btn" (click)="saveTemplateName(t)" title="Save"><span class="material-symbols-outlined">check</span></button>
+                  <button class="cancel-btn" (click)="cancelTemplateNameEdit(t)" title="Cancel"><span class="material-symbols-outlined">close</span></button>
+              </div>
+            </ng-template>
           </td>
           <td>{{ t.description }}</td>
           <td class="actions-cell">
