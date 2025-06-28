@@ -55,7 +55,7 @@ def analyze_text(cloud_event):
         VERTEX_AI_LOCATION = settings.get("vertex_ai_location")
         vertexai.init(project=GCP_PROJECT_ID, location=VERTEX_AI_LOCATION)
 
-        MODEL_NAME = settings.get('legislative_analysis_model', 'gemini-1.5-pro')
+        MODEL_NAME = settings.get('legislative_analysis_model', 'gemini-2.5-pro')
         MODEL_TEMPERATURE = settings.get('analysis_model_temperature', 0.2)
         
         # Get the mapping of categories to prompt IDs

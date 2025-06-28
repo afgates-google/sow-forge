@@ -39,32 +39,36 @@ def handle_batch_result(cloud_event):
             return
 
         # 3. Prepare for the next stage
-        original_filename_base = file_name.split('/')[0]
-        output_filename = f"{original_filename_base}.txt"
+        path_parts = os.path.normpath(file_name).split(os.sep)
+        if len(path_parts) < 2:
+            print(f"Ignoring file with unexpected path structure: {file_name}")
+            return
+        
+        project_id = path_parts[0]
+        doc_id = path_parts[1]
+
+        # This is the correct output path that the next function expects
+        output_filename = f"{project_id}/{doc_id}.txt"
 
         # ... (the rest of the code to save to Firestore and the output bucket is correct) ...
         
-        doc_id = original_filename_base
-        is_template_job = doc_id.startswith('template_job_')
+        is_template_job = project_id.startswith('template_job_') # Check the project_id instead
 
         if not is_template_job:
-            doc_ref = db.collection("sows").document(doc_id)
-            # --- Create a complete document so the UI displays it correctly ---
+            # Use both projectId and docId to reference the correct Firestore document
+            doc_ref = db.collection("sow_projects").document(project_id).collection("source_documents").document(doc_id)
             doc_ref.set({
-                "original_filename": f"{doc_id}.pdf", # Re-construct original name
-                "display_name": f"{doc_id}.pdf",
                 "status": "TEXT_EXTRACTED",
                 "processing_method": "batch",
-                "created_at": firestore.SERVER_TIMESTAMP,
                 "last_updated_at": firestore.SERVER_TIMESTAMP
             }, merge=True)
-            print(f"Created/updated SOW document with ID: {doc_id}")
+            print(f"Updated SOW document status: sow_projects/{project_id}/source_documents/{doc_id}")
         
         # This part is still relevant for the aggregator function
         if is_template_job:
-            job_id = doc_id.split('_')[2]
+            job_id = project_id.split('_')[2]
             job_ref = db.collection('template_jobs').document(job_id)
-            job_ref.update({f'processed_files.{doc_id}': 'Text extracted, ready for aggregation.'})
+            job_ref.update({f'processed_files.{doc_id}': 'Text extracted, ready for aggregation.'}) # doc_id is the file key
             print(f"Updated template job: {job_id}")
 
         output_bucket = storage_client.bucket(OUTPUT_TEXT_BUCKET_NAME)

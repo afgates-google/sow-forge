@@ -201,21 +201,34 @@ app.delete('/api/projects/:projectId', async (req, res) => {
         res.status(500).send({ message: 'Could not complete project deletion process.' });
     }
 });
+
+/**
+ * Fetches the details for a single source document within a project.
+ */
 app.get('/api/projects/:projectId/documents/:docId', async (req, res) => {
-    // ... code from previous version ...
-    try {
-        const { projectId, docId } = req.params;
-        const docRef = firestore.collection('sow_projects').doc(projectId).collection('source_documents').doc(docId);
-  
-        const doc = await docRef.get();
-        if (!doc.exists) {
-            return res.status(404).json({ message: 'Source document not found.' });
-        }
-        res.status(200).json({ id: doc.id, ...doc.data() });
-    } catch (error) {
-        console.error(`!!! Error fetching source document ${req.params.docId}:`, error);
-        res.status(500).json({ message: 'Could not fetch source document details.' });
+  try {
+    const { projectId, docId } = req.params;
+    console.log(`Fetching details for document ${docId} in project ${projectId}`);
+
+    const docRef = firestore
+      .collection('sow_projects')
+      .doc(projectId)
+      .collection('source_documents')
+      .doc(docId);
+
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ message: 'Source document not found.' });
     }
+
+    // Return the document data, including its ID
+    res.status(200).json({ id: doc.id, ...doc.data() });
+
+  } catch (error) {
+    console.error(`!!! Error fetching source document ${req.params.docId}:`, error);
+    res.status(500).json({ message: 'Could not fetch source document details.' });
+  }
 });
 app.put('/api/projects/:projectId/source_documents/:docId', async (req, res) => {
     // ... code from previous version ...
@@ -387,7 +400,90 @@ app.post('/api/generate-sow', async (req, res) => {
         res.status(500).send({ message: 'Could not proxy to SOW generation function.' });
     }
 });
+
+app.post('/api/generate-template', async (req, res) => {
+  try {
+    // Get the URL of the real Cloud Function from our settings
+    const functionUrl = globalSettings.template_generation_func_url;
+
+    if (!functionUrl) {
+      return res.status(500).json({ message: 'Template generation function URL is not configured in settings.' });
+    }
+
+    console.log(`Proxying request to template generation function: ${functionUrl}`);
+
+    // Use the GoogleAuth client to get an authenticated client
+    // This automatically attaches the required identity token for secure invocation.
+    const client = await auth.getIdTokenClient(functionUrl);
+
+    // Forward the request from the frontend directly to the Cloud Function
+    const response = await client.request({ 
+      url: functionUrl, 
+      method: 'POST', 
+      data: req.body 
+    });
+
+    // Send the Cloud Function's response back to the frontend
+    res.status(response.status).send(response.data);
+
+  } catch (error) {
+    // Log the detailed error on the backend
+    console.error('!!! Error proxying to template-generation-func:', error.response ? error.response.data : error);
+    // Send a generic error back to the frontend
+    res.status(500).json({ message: 'Could not proxy request to template generation function.' });
+  }
+});
 // (Add other proxy routes here if needed)
+
+// --- UTILITY ENDPOINTS ---
+
+app.post('/api/generate-upload-url', async (req, res) => {
+  try {
+    // The frontend will tell us what file it's for and where it's going
+    const { filename, contentType, targetBucket, projectId, docId } = req.body;
+    
+    // Basic validation
+    if (!filename || !contentType || !targetBucket) {
+      return res.status(400).json({ message: 'filename, contentType, and targetBucket are required.' });
+    }
+    
+    let gcsPath;
+    let bucketName;
+
+    // Logic to decide which bucket and path to use
+    if (targetBucket === 'templates') {
+      bucketName = globalSettings.gcs_template_samples_bucket;
+      // For template samples, the path can just be the filename.
+      gcsPath = filename;
+      console.log(`Generating URL for template sample: ${gcsPath} in bucket ${bucketName}`);
+
+    } else if (targetBucket === 'sows') {
+      bucketName = globalSettings.gcs_uploads_bucket;
+      // For SOWs, we require the structured path.
+      if (!projectId || !docId) {
+        return res.status(400).json({ message: 'projectId and docId are required for SOW uploads.' });
+      }
+      gcsPath = `${projectId}/${docId}/${filename}`;
+      console.log(`Generating URL for SOW document: ${gcsPath} in bucket ${bucketName}`);
+
+    } else {
+        return res.status(400).json({ message: 'Invalid targetBucket specified.' });
+    }
+    
+    const options = {
+      version: 'v4',
+      action: 'write',
+      expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+      contentType,
+    };
+
+    const [url] = await storage.bucket(bucketName).file(gcsPath).getSignedUrl(options);
+    res.status(200).json({ signedUrl: url, gcsPath: gcsPath });
+  } catch (error) {
+    console.error('!!! Error generating signed URL:', error);
+    res.status(500).json({ message: 'Could not generate upload URL.' });
+  }
+});
 
 // --- SETTINGS API ENDPOINTS ---
 
