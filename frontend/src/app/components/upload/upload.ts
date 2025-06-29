@@ -1,16 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, NgZone } from '@angular/core'; // <-- 1. IMPORT NgZone
 import { ApiService } from '../../services/api.service';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
 
 interface StagedFile {
   file: File;
   category: string;
   status: 'STAGED' | 'UPLOADING' | 'UPLOADED' | 'FAILED';
-  docId?: string;
 }
 
 @Component({
@@ -35,7 +32,11 @@ export class UploadComponent {
     'Project Plan / Schedule'
   ];
 
-  constructor(private apiService: ApiService, private router: Router) {}
+  constructor(
+    private apiService: ApiService, 
+    private router: Router,
+    private zone: NgZone // <-- 2. INJECT NgZone
+  ) {}
 
   // --- Methods for handling file selection (onDrop, onFileSelected, etc.) ---
   onDragOver(event: DragEvent) { event.preventDefault(); }
@@ -67,19 +68,15 @@ export class UploadComponent {
     }
     this.isCreating = true;
 
-    // --- THIS IS THE CORRECTED PART ---
     const fileMetadatas = this.stagedFiles.map(item => ({
       filename: item.file.name,
       category: item.category,
-      contentType: item.file.type // <-- THE MISSING PROPERTY IS NOW ADDED
+      contentType: item.file.type
     }));
 
-    // Step 1: Create the project structure.
     this.apiService.createProject(this.projectName, fileMetadatas).subscribe({
       next: (response) => {
         const { projectId, uploadInfo } = response;
-        
-        // Step 2: Upload all files using the returned signed URLs.
         this.uploadAllFiles(projectId, uploadInfo);
       },
       error: (err) => {
@@ -104,8 +101,12 @@ export class UploadComponent {
 
     Promise.all(uploadPromises)
       .then(() => {
-        // Step 3: All uploads complete, navigate to status page.
-        this.router.navigate(['/projects', projectId]);
+        // --- 3. THIS IS THE CRITICAL FIX ---
+        // We wrap the navigation in `zone.run()` to ensure Angular
+        // processes this change and updates the view.
+        this.zone.run(() => {
+          this.router.navigate(['/projects', projectId]);
+        });
       })
       .catch((uploadError) => {
         this.handleError('One or more files failed to upload.', uploadError);
@@ -116,7 +117,6 @@ export class UploadComponent {
     console.error(message, error);
     alert(`Error: ${message} Please check the console for details.`);
     this.isCreating = false;
-    // Optionally reset status of any files that were mid-upload
     this.stagedFiles.forEach(item => {
       if (item.status === 'UPLOADING') item.status = 'FAILED';
     });

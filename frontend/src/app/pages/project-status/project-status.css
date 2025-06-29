@@ -195,3 +195,90 @@
     opacity: .5;
   }
 }
+/* Add this to project-status.css */
+a.file-name-link {
+  font-weight: 500;
+  text-decoration: none;
+  color: #2d3748;
+}
+a.file-name-link:hover {
+  color: #2b6cb0;
+  text-decoration: underline;
+}
+/* Add these styles to the bottom of project-status.css */
+
+/* This will be the new parent of the icons in the name column */
+.name-view .icon-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* Space between the icons */
+}
+
+/* Style for the new "View Analysis" link */
+.action-icon-link {
+  color: #38a169; /* A success green to match the status pill */
+  text-decoration: none;
+  display: inline-flex;
+  transition: transform 0.2s ease-in-out;
+}
+
+.action-icon-link:hover {
+  transform: scale(1.2); /* A nice little pop effect on hover */
+}
+
+/* Ensure the material icon inside the link is styled correctly */
+.action-icon-link .material-symbols-outlined {
+  font-size: 22px;
+  vertical-align: middle;
+}
+/* Add these styles to project-status.css */
+.generated-sows-section {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+.sow-list { display: flex; flex-direction: column; gap: 1rem; }
+.sow-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background-color: #fff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.sow-name { font-weight: 600; color: #2d3748; }
+.sow-meta { font-size: 0.85rem; color: #718096; margin-top: 0.25rem; display: block;}
+.sow-actions .btn-primary, .sow-actions .btn-secondary { text-decoration: none; }
+/* Add or modify this in project-status.css */
+.sow-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background-color: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+.sow-actions .btn-secondary:hover {
+  background-color: #edf2f7;
+}
+/* Add these styles for the delete icon button */
+.action-btn-icon {
+  display: inline-flex;
+  padding: 0.5rem;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #718096;
+}
+.action-btn-icon:hover {
+  background-color: #edf2f7;
+  color: #c53030; /* Red on hover */
+}

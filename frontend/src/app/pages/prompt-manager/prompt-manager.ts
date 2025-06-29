@@ -2,29 +2,25 @@ import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MarkdownModule } from 'ngx-markdown'; 
 
 @Component({
   selector: 'app-prompt-manager',
   standalone: true,
-  imports: [CommonModule, FormsModule, MarkdownModule],
-  templateUrl: './prompt-manager.html', // <-- Ensure this filename is correct
+  imports: [CommonModule, FormsModule],
+  templateUrl: './prompt-manager.html',
   styleUrls: ['./prompt-manager.css']
 })
 export class PromptManagerComponent implements OnInit {
   prompts: any[] = [];
   selectedPromptId: string | null = null;
   
-  // State for loading
   isLoadingList = true;
   isLoadingPrompt = false;
   isSaving = false;
   
-  // State for content editing
   editablePromptText: string = '';
   originalPromptText: string = '';
   
-  // State for inline name editing
   editingPromptId: string | null = null;
   promptNameBeforeEdit = '';
 
@@ -45,16 +41,6 @@ export class PromptManagerComponent implements OnInit {
     this.loadPromptContent();
   }
 
-  // --- FIX: Renamed this method for clarity ---
-  onPromptSelected(): void {
-    if (!this.selectedPromptId) {
-      this.editablePromptText = '';
-      this.originalPromptText = '';
-      return;
-    }
-    this.loadPromptContent();
-  }
-
   loadPromptContent(): void {
     if (!this.selectedPromptId) return;
 
@@ -69,20 +55,24 @@ export class PromptManagerComponent implements OnInit {
     });
   }
 
-  savePrompt(): void {
+  // THIS IS THE FIRST FIX
+  savePromptContent(): void {
     if (!this.selectedPromptId || this.isPristine() || this.isSaving) return;
 
     this.isSaving = true;
     this.statusMessage = 'Saving...';
     
-    this.apiService.updatePrompt(this.selectedPromptId, this.editablePromptText).subscribe({
+    // Pass an object with the 'prompt_text' key
+    const updateData = { prompt_text: this.editablePromptText };
+    
+    this.apiService.updatePrompt(this.selectedPromptId, updateData).subscribe({
       next: () => {
         this.originalPromptText = this.editablePromptText;
         this.statusMessage = `Content saved successfully at ${new Date().toLocaleTimeString()}`;
-        this.isSaving = false;
         setTimeout(() => this.statusMessage = '', 3000);
       },
-      error: (err) => { this.statusMessage = 'Save failed!'; this.isSaving = false; console.error(err); }
+      error: (err: any) => { this.statusMessage = 'Save failed!'; console.error(err); },
+      complete: () => { this.isSaving = false; }
     });
   }
 
@@ -103,14 +93,14 @@ export class PromptManagerComponent implements OnInit {
     this.editingPromptId = null;
   }
 
-  // --- FIX: Corrected method ---
+  // THIS IS THE SECOND FIX
   savePromptName(prompt: any): void {
     if (prompt.name === this.promptNameBeforeEdit) {
       this.editingPromptId = null;
       return;
     }
-    // Now calls the correct, newly added method
-    this.apiService.updatePromptDetails(prompt.id, { name: prompt.name }).subscribe(() => {
+    // Call the unified 'updatePrompt' method, passing an object with the 'name' key
+    this.apiService.updatePrompt(prompt.id, { name: prompt.name }).subscribe(() => {
       this.editingPromptId = null;
     });
   }

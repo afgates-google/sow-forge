@@ -98,3 +98,35 @@ h3 {
   border-radius: 6px;
   text-align: center;
 }
+
+/* Add these styles to your existing CSS file */
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  color: #4299e1;
+  text-decoration: none;
+  font-weight: 500;
+}
+.back-link:hover { text-decoration: underline; }
+
+.content-wrapper {
+  background-color: #ffffff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 3rem;
+  color: #718096;
+}
+
+/* Status Pill (re-used from project-status.css) */
+.status-pill { padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+.analyzed-success { background-color: #c6f6d5; color: #22543d; }
+.text-extracted { background-color: #bee3f8; color: #2c5282; }
+.processing-ocr, .analyzing, .re-analyzing { background-color: #bee3f8; color: #2c5282; }
+.analysis-failed, .ocr-failed { background-color: #fed7d7; color: #822727; }
+.pending-upload { background-color: #e2e8f0; color: #4a5568; }

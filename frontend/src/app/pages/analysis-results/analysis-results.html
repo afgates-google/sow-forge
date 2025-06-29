@@ -1,5 +1,8 @@
 <div class="results-container">
-    <div *ngIf="isLoading">
+    <!-- NEW: Back navigation link -->
+    <a [routerLink]="['/projects', projectId]" class="back-link">← Back to Project Status</a>
+
+    <div *ngIf="isLoading" class="loading-indicator">
       <p>Loading analysis results...</p>
     </div>
   
@@ -7,10 +10,14 @@
       <p>{{ errorMessage }}</p>
     </div>
   
-    <div *ngIf="!isLoading && document">
-      <h2>Analysis for: {{ document.originalFilename }}</h2>
-      <p class="metadata"><strong>Category:</strong> {{ document.category }} | <strong>Status:</strong> {{ document.status }}</p>
-  
+    <!-- MODIFIED: Wrapper div and styled status pill -->
+    <div *ngIf="!isLoading && document" class="content-wrapper">
+      <h2>Analysis for: {{ document.displayName || document.originalFilename }}</h2>
+      <p class="metadata">
+        <strong>Category:</strong> {{ document.category }} | <strong>Status:</strong> 
+        <span class="status-pill" [ngClass]="document.status.toLowerCase().replace('_', '-')">{{ document.status }}</span>
+      </p>
+
       <div class="summary-section">
         <h3>AI Summary</h3>
         <p>{{ document.analysis?.summary || 'No summary was generated.' }}</p>
@@ -35,7 +42,9 @@
           </tbody>
         </table>
         <ng-template #noRequirements>
-          <p>No specific requirements were extracted from this document.</p>
+            <div id="noRequirements">
+              <p>No specific requirements were extracted from this document.</p>
+            </div>
         </ng-template>
       </div>
     </div>

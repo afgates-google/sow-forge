@@ -1,12 +1,12 @@
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-analysis-results',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './analysis-results.html',
   styleUrls: ['./analysis-results.css']
 })
@@ -14,6 +14,7 @@ export class AnalysisResultsComponent implements OnInit {
   document: any = null;
   isLoading = true;
   errorMessage = '';
+  projectId: string = '';
 
   constructor(private route: ActivatedRoute, private apiService: ApiService) { }
 
@@ -27,13 +28,15 @@ export class AnalysisResultsComponent implements OnInit {
       return;
     }
 
+    this.projectId = projectId;
+
     this.apiService.getSourceDocumentDetails(projectId, docId).subscribe({
       next: (data) => {
         this.document = data;
         this.isLoading = false;
       },
       error: (err) => {
-        this.errorMessage = `Failed to load analysis results. ${err.message}`;
+        this.errorMessage = `Failed to load analysis results. ${err.error?.message || err.message}`;
         this.isLoading = false;
         console.error(err);
       }

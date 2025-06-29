@@ -1,21 +1,21 @@
+// In frontend/src/app/pages/editor/editor.ts
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router'; // <-- Added RouterModule
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MarkdownModule } from 'ngx-markdown'; // <-- Added MarkdownModule
+import { MarkdownModule } from 'ngx-markdown';
 
 @Component({
   selector: 'app-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, MarkdownModule], // <-- CORRECTED imports
+  imports: [CommonModule, FormsModule, RouterLink, MarkdownModule],
   templateUrl: './editor.html',
   styleUrls: ['./editor.css']
 })
 export class EditorComponent implements OnInit {
-  // --- Component State ---
   project: any = null;
-  projectId!: string;
+  sow: any = null;
   
   editableSowText: string = 'Loading SOW content...';
   originalSowText: string = '';
@@ -24,34 +24,35 @@ export class EditorComponent implements OnInit {
   isCreatingGDoc = false;
   statusMessage: string = '';
   
-  activeTab: 'write' | 'preview' = 'write'; // <-- CRITICAL FIX: Added this missing property
+  activeTab: 'write' | 'preview' = 'write';
 
   constructor(
     private route: ActivatedRoute,
-    private router: Router,
     private apiService: ApiService
   ) {}
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (!id) {
-      this.router.navigate(['/history']);
+    // Correctly read all parameters from the route
+    const projectId = this.route.snapshot.paramMap.get('projectId');
+    const sowId = this.route.snapshot.paramMap.get('sowId');
+
+    if (!projectId || !sowId) {
+      this.editableSowText = 'Error: Project or SOW ID missing from URL.';
       return;
     }
-    this.projectId = id;
-    this.loadSowContent();
-  }
 
-  loadSowContent(): void {
-    this.apiService.getProjectDetails(this.projectId).subscribe({
+    this.apiService.getGeneratedSowDetails(projectId, sowId).subscribe({
       next: (data) => {
-        this.project = data;
-        this.editableSowText = data.generatedSowText || '# Statement of Work\n\n*No content has been generated for this project yet.*';
+        console.log("Received SOW details from API:", data); // For debugging
+        this.project = data.project;
+        this.sow = data.sow;
+        this.editableSowText = data.sow?.generatedSowText || '# SOW Content Not Found';
         this.originalSowText = this.editableSowText;
       },
-      error: (err) => {
-        this.statusMessage = `Error: Could not load project ${this.projectId}.`;
-        console.error(err);
+      error: (err: any) => {
+        // Log the full error to the console for easier debugging
+        console.error("API Error fetching SOW details:", err);
+        this.statusMessage = `Error: Could not load SOW. ${err.error?.message || err.message}`;
       }
     });
   }
@@ -61,49 +62,29 @@ export class EditorComponent implements OnInit {
   }
 
   saveSow(): void {
-    if (!this.isDirty || this.isSaving) {
-      return;
-    }
-    this.isSaving = true;
-    this.statusMessage = "Saving...";
-    this.apiService.updateProject(this.projectId, { generatedSowText: this.editableSowText }).subscribe({
-      next: () => {
-        this.originalSowText = this.editableSowText;
-        this.statusMessage = `Saved successfully at ${new Date().toLocaleTimeString()}`;
-        setTimeout(() => this.statusMessage = '', 3000);
-      },
-      error: (err) => {
-        this.statusMessage = "Save failed. Please try again.";
-        console.error("Failed to save SOW:", err);
-      },
-      complete: () => {
-        this.isSaving = false;
-      }
-    });
+    alert('Save functionality is not yet implemented for this editor.');
   }
 
   createGoogleDoc(): void {
-    if (this.isCreatingGDoc) {
-      return;
-    }
+    if (this.isCreatingGDoc || !this.project || !this.sow) return;
+
     this.isCreatingGDoc = true;
     this.statusMessage = "Creating Google Doc...";
-    this.apiService.createGoogleDoc(this.projectId).subscribe({
-      next: (response) => {
-        this.statusMessage = "Google Doc created successfully!";
-        if (this.project) {
-          this.project.google_doc_url = response.doc_url;
+
+    this.apiService.createGoogleDocForSow(this.project.id, this.sow.id).subscribe({
+        next: (response: any) => {
+            this.statusMessage = "Google Doc created successfully!";
+            this.sow.googleDocUrl = response.doc_url;
+            window.open(response.doc_url, '_blank');
+            setTimeout(() => this.statusMessage = '', 3000);
+        },
+        error: (err: any) => {
+            this.statusMessage = "Failed to create Google Doc.";
+            console.error(err);
+        },
+        complete: () => {
+            this.isCreatingGDoc = false;
         }
-        window.open(response.doc_url, '_blank');
-        setTimeout(() => this.statusMessage = '', 3000);
-      },
-      error: (err) => {
-        this.statusMessage = "Failed to create Google Doc.";
-        console.error("Failed to create Google Doc:", err);
-      },
-      complete: () => {
-        this.isCreatingGDoc = false;
-      }
     });
   }
 }

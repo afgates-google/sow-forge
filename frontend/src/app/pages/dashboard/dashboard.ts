@@ -40,14 +40,6 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  viewProject(projectId: string, status: string): void {
-    if (status === 'SOW_GENERATED') {
-      this.router.navigate(['/projects', projectId, 'editor']);
-    } else {
-      this.router.navigate(['/projects', projectId]);
-    }
-  }
-
   deleteProject(projectId: string, projectName: string): void {
     if (confirm(`Are you sure you want to delete the project "${projectName}"? This action cannot be undone.`)) {
       this.apiService.deleteProject(projectId).subscribe({

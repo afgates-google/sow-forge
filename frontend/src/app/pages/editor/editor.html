@@ -1,42 +1,33 @@
-<div class="editor-container" *ngIf="project">
+<div class="editor-container" *ngIf="sow && project">
   <div class="editor-header">
-    <h2>Editing SOW: {{ project.projectName }}</h2>
+    <h2>Editing SOW for: {{ project.name }}</h2>
     <div class="editor-actions">
+      <a [routerLink]="['/projects', project.id]" class="action-link">Back to Project Status</a>
       <span class="status-message">{{ statusMessage }}</span>
-      <a *ngIf="project.google_doc_url" [href]="project.google_doc_url" target="_blank" class="gdoc-link">View Google Doc</a>
-      <button (click)="createGoogleDoc()" [disabled]="isCreatingGDoc">
+
+      <!-- RE-ADDED LOGIC -->
+      <a *ngIf="sow.googleDocUrl" [href]="sow.googleDocUrl" target="_blank" class="gdoc-link">View Google Doc</a>
+      <button *ngIf="!sow.googleDocUrl" (click)="createGoogleDoc()" [disabled]="isCreatingGDoc" class="btn-primary">
         {{ isCreatingGDoc ? 'Creating...' : 'Create Google Doc' }}
       </button>
+
       <button (click)="saveSow()" [disabled]="!isDirty || isSaving">
         {{ isSaving ? 'Saving...' : 'Save Changes' }}
       </button>
     </div>
   </div>
-
-  <!-- NEW: Tab Navigation -->
   <div class="tab-nav">
-    <button class="tab-button" [class.active]="activeTab === 'write'" (click)="activeTab = 'write'">
-      Write
-    </button>
-    <button class="tab-button" [class.active]="activeTab === 'preview'" (click)="activeTab = 'preview'">
-      Preview
-    </button>
+    <button class="tab-button" [class.active]="activeTab === 'write'" (click)="activeTab = 'write'">Write</button>
+    <button class="tab-button" [class.active]="activeTab === 'preview'" (click)="activeTab = 'preview'">Preview</button>
   </div>
-
-  <!-- NEW: Tabbed Editor Content -->
   <div class="editor-content">
-    <textarea 
-      *ngIf="activeTab === 'write'"
-      class="markdown-editor" 
-      [(ngModel)]="editableSowText">
-    </textarea>
-    
+    <textarea *ngIf="activeTab === 'write'" class="markdown-editor" [(ngModel)]="editableSowText"></textarea>
     <div *ngIf="activeTab === 'preview'" class="markdown-preview">
       <markdown [data]="editableSowText"></markdown>
     </div>
   </div>
 </div>
 
-<div *ngIf="!project" class="loading-container">
+<div *ngIf="!sow || !project" class="loading-container">
   <p>Loading SOW content...</p>
 </div>

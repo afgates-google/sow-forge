@@ -96,7 +96,8 @@
 
 .editor-content {
   flex-grow: 1;
-  display: flex; /* Make it a flex container to manage children */
+  display: flex;
+  overflow: hidden; /* Make it a flex container to manage children */
 }
 
 /* Ensure the editor and preview take up the full space */

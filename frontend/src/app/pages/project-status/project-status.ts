@@ -41,6 +41,9 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
   projectNameBeforeEdit = '';
   editingDocId: string | null = null;
   docNameBeforeEdit = '';
+  // Add these properties to the top of the ProjectStatusComponent class
+  editingSowId: string | null = null;
+  sowNameBeforeEdit = '';
 
   constructor(
     private route: ActivatedRoute,
@@ -49,7 +52,8 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.projectId = this.route.snapshot.paramMap.get('id')!;
+    
+  this.projectId = this.route.snapshot.paramMap.get('projectId')!; // <-- CORRECTED
     if (!this.projectId) {
       this.errorMessage = "Project ID is missing from the URL.";
       this.isLoading = false;
@@ -67,11 +71,13 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (data) => {
+          console.log('Successfully fetched project data:', data);
           this.project = data;
           this.isLoading = false; // Data has loaded
           this.checkAnalysisStatus();
         },
         error: (err) => {
+          console.error('ERROR fetching project details:', err);
           this.errorMessage = "Could not fetch project details.";
           this.isLoading = false;
           this.pollingSubscription?.unsubscribe();
@@ -113,14 +119,18 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
   triggerSowGeneration(): void {
     if (!this.selectedTemplateId || !this.projectId) return;
     this.isGenerating = true;
+    // The generateSow function now returns the new SOW's ID
     this.apiService.generateSow(this.projectId, this.selectedTemplateId).subscribe({
-      next: () => {
+      next: (response: any) => {
         this.isGenerating = false;
-        this.router.navigate(['/projects', this.projectId, 'editor']);
+        // Navigate directly to the new SOW's editor page
+        this.router.navigate(['/projects', this.projectId, 'sows', response.sowId, 'editor']);
       },
       error: (err) => {
         this.isGenerating = false;
-        alert('SOW Generation Failed.');
+        // Use the error message from the backend if available
+        const errorMessage = err.error?.message || 'SOW Generation Failed.';
+        alert(errorMessage);
         console.error(err);
       }
     });
@@ -187,6 +197,61 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
           console.error('Failed to trigger regeneration', err);
           alert('Could not trigger re-analysis.');
           this.loadProjectDetails(); // Re-fetch state on error
+        }
+      });
+    }
+  }
+
+  startSowNameEdit(sow: any): void {
+    this.editingSowId = sow.id;
+    this.sowNameBeforeEdit = sow.templateName;
+  }
+
+  cancelSowNameEdit(sow: any): void {
+    if (this.editingSowId === sow.id) {
+      sow.templateName = this.sowNameBeforeEdit;
+      this.editingSowId = null;
+    }
+  }
+
+  saveSowName(sow: any): void {
+    if (!this.editingSowId || sow.templateName.trim() === '') {
+      this.cancelSowNameEdit(sow);
+      return;
+    }
+
+    if (sow.templateName === this.sowNameBeforeEdit) {
+        this.editingSowId = null;
+        return;
+    }
+
+    this.apiService.updateGeneratedSow(this.projectId, sow.id, { templateName: sow.templateName }).subscribe({
+      next: () => {
+        console.log('SOW name updated successfully.');
+        this.editingSowId = null;
+      },
+      error: (err: any) => {
+        alert('Failed to update SOW name.');
+        console.error(err);
+        this.cancelSowNameEdit(sow);
+      }
+    });
+  }
+
+  // Add this method inside the ProjectStatusComponent class
+
+  deleteSow(sowToDelete: any): void {
+    const sowName = sowToDelete.templateName || 'this SOW';
+    if (confirm(`Are you sure you want to delete "${sowName}"? This action cannot be undone.`)) {
+      this.apiService.deleteGeneratedSow(this.projectId, sowToDelete.id).subscribe({
+        next: () => {
+          // For an immediate UI update, filter the deleted SOW out of the local array
+          this.project.generatedSows = this.project.generatedSows.filter((sow: any) => sow.id !== sowToDelete.id);
+          console.log('SOW deleted successfully from the UI.');
+        },
+        error: (err: any) => {
+          alert('Failed to delete SOW. Please check the console.');
+          console.error(err);
         }
       });
     }

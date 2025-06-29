@@ -146,3 +146,80 @@ h2 {
   padding: 2rem;
   color: #718096;
 }
+/* Add this new style to dashboard.css */
+
+.action-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background-color: #f7fafc; /* Very light gray */
+  color: #4a5568; /* Dark gray text */
+  border: 1px solid #e2e8f0; /* Light gray border */
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none; /* Removes underline from the <a> tag */
+  transition: background-color 0.2s;
+}
+
+.action-btn-secondary:hover {
+  background-color: #edf2f7; /* Slightly darker on hover */
+}
+/* Add these new styles to dashboard.css */
+
+.project-status-line {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: #4a5568;
+  display: flex;
+  align-items: center;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 9999px; /* This makes it a pill shape */
+  font-weight: 600;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid transparent;
+}
+
+/* --- Color coding for the status tags --- */
+/* Default/In-Progress (Blue) */
+.status-drafting,
+.status-processing-ocr,
+.status-analyzing,
+.status-re-analyzing {
+  background-color: #ebf8ff;
+  color: #3182ce;
+  border-color: #90cdf4;
+}
+
+/* Success (Green) */
+.status-analysis-complete,
+.status-text-extracted,
+.status-sow-generated,
+.status-analyzed-success {
+  background-color: #f0fff4;
+  color: #38a169;
+  border-color: #9ae6b4;
+}
+
+/* Failure (Red) */
+.status-analysis-failed,
+.status-ocr-failed {
+  background-color: #fff5f5;
+  color: #c53030;
+  border-color: #fed7d7;
+}
+
+/* Neutral/Pending (Gray) */
+.status-pending-upload {
+  background-color: #edf2f7;
+  color: #4a5568;
+  border-color: #cbd5e0;
+}

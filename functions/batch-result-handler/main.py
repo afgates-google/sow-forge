@@ -2,125 +2,84 @@ import functions_framework
 from google.cloud import storage, firestore
 import json
 import os
+import traceback
 
-# --- (1) NEW: Global variable for Firestore clients ---
 db = None
 storage_client = None
 global_settings = None
 
-def init_clients():
+def init_clients_and_settings():
     """Initializes global clients and settings to reuse connections."""
     global db, storage_client, global_settings
-    if db and storage_client and global_settings:
+    if all((db, storage_client, global_settings)):
         return
 
+    print("--- Initializing clients and loading global_config ---")
     db = firestore.Client()
     storage_client = storage.Client()
-    
-    print("--- Initializing: Loading global_config from Firestore ---")
     settings_doc = db.collection('settings').document('global_config').get()
     if not settings_doc.exists:
         raise Exception("CRITICAL: Global config 'global_config' not found in Firestore!")
-    
     global_settings = settings_doc.to_dict()
     print("✅ Global settings loaded successfully.")
 
-
 @functions_framework.cloud_event
-def handle_batch_result(cloud_event):
-    """
-    Triggered by a GCS event when Document AI completes a batch job.
-    This function reads the full text from the job's JSON output
-    and saves it to the 'processed-text' bucket for the next stage.
-    """
-    # --- (2) NEW: Initialize clients and settings on invocation ---
+def batch_result_handler(cloud_event): # CORRECTED NAME
+    """Handles the result of a Document AI batch processing job."""
     try:
-        init_clients()
+        init_clients_and_settings()
     except Exception as e:
         print(f"!!! CLIENT INITIALIZATION FAILED: {e}")
-        return # Cannot proceed without settings
-
-    data = cloud_event.data
-    bucket_name = data["bucket"]
-    file_name = data["name"]
-
-    # This function is triggered by the JSON output of the batch job.
-    if not file_name.endswith('.json'):
-        print(f"Ignoring file '{file_name}', not a JSON output.")
         return
 
-    print(f"--- BATCH HANDLER START: Processing gs://{bucket_name}/{file_name} ---")
-    
+    file_name = ""
     try:
-        # 1. Read the JSON output file from GCS
-        source_bucket = storage_client.bucket(bucket_name)
-        blob = source_bucket.blob(file_name)
-        json_text = blob.download_as_text()
-        result_data = json.loads(json_text)
-
-        # 2. Extract the full text
-        full_text = result_data.get('text', '')
-        if not full_text:
-            print("Warning: No text found in the result file. Updating status to failed.")
-            # Even if it fails, we need to extract IDs to update Firestore status
-            project_id, doc_id = _extract_ids_from_path(file_name)
-            if project_id and doc_id:
-                 doc_ref = db.collection("sow_projects").document(project_id).collection("source_documents").document(doc_id)
-                 doc_ref.set({"status": "OCR_FAILED", "status_message": "Document AI did not return any text."}, merge=True)
+        data = cloud_event.data
+        bucket_name, file_name = data["bucket"], data["name"]
+        if not file_name.endswith('.json'):
+            print(f"Ignoring file '{file_name}', not a JSON output.")
             return
 
-        # 3. Extract IDs and determine the output path
+        print(f"--- BATCH HANDLER START: Processing gs://{bucket_name}/{file_name} ---")
         project_id, doc_id = _extract_ids_from_path(file_name)
         if not project_id or not doc_id:
-            print(f"Ignoring file with unexpected path structure: {file_name}")
-            return
-            
-        output_filename = f"{project_id}/{doc_id}.txt"
-        
-        # 4. Update Firestore status based on job type
-        is_template_job = project_id.startswith('template_job_')
-        if not is_template_job:
-            doc_ref = db.collection("sow_projects").document(project_id).collection("source_documents").document(doc_id)
-            doc_ref.set({
-                "status": "TEXT_EXTRACTED",
-                "last_updated_at": firestore.SERVER_TIMESTAMP
-            }, merge=True)
-            print(f"Updated SOW document status: sow_projects/{project_id}/source_documents/{doc_id}")
-        else:
-            job_id = project_id.split('_')[2]
-            job_ref = db.collection('template_jobs').document(job_id)
-            job_ref.update({f'processed_files.{doc_id}': 'Text extracted, ready for aggregation.'})
-            print(f"Updated template job: {job_id}")
+            raise ValueError(f"Could not extract IDs from path: {file_name}")
 
-        # --- (3) CHANGED: Use the bucket name from global settings ---
+        blob = storage_client.bucket(bucket_name).blob(file_name)
+        result_data = json.loads(blob.download_as_text())
+        full_text = result_data.get('text', '')
+
+        doc_ref = db.collection("sow_projects").document(project_id).collection("source_documents").document(doc_id)
+        if not full_text:
+            print("Warning: No text in result file. Updating status to failed.")
+            doc_ref.set({"status": "OCR_FAILED", "status_message": "Document AI batch job did not return text."}, merge=True)
+            return
+
         output_bucket_name = global_settings['gcs_processed_text_bucket']
-        output_bucket = storage_client.bucket(output_bucket_name)
-        output_blob = output_bucket.blob(output_filename)
-        output_blob.upload_from_string(full_text)
+        storage_client.bucket(output_bucket_name).blob(f"{project_id}/{doc_id}.txt").upload_from_string(full_text)
         
-        print(f"--- BATCH HANDLER END: Successfully saved to gs://{output_bucket_name}/{output_filename} ---")
+        doc_ref.set({"status": "TEXT_EXTRACTED", "last_updated_at": firestore.SERVER_TIMESTAMP}, merge=True)
+        print(f"--- BATCH HANDLER END: Successfully processed gs://{output_bucket_name}/{project_id}/{doc_id}.txt ---")
 
     except Exception as e:
-        print(f"!!! CRITICAL ERROR in batch_result_handler: {e}")
-        # Attempt to update Firestore with failure status
+        tb_str = traceback.format_exc()
+        print(f"!!! CRITICAL ERROR in batch_result_handler: {e}\n{tb_str}")
         try:
-            project_id, doc_id = _extract_ids_from_path(file_name)
-            if project_id and doc_id and not project_id.startswith('template_job_'):
-                doc_ref = db.collection("sow_projects").document(project_id).collection("source_documents").document(doc_id)
-                doc_ref.set({"status": "OCR_FAILED", "status_message": f"Error in batch handler: {str(e)}"}, merge=True)
+            # Attempt to update Firestore with failure status even if something else went wrong
+            if file_name:
+                project_id, doc_id = _extract_ids_from_path(file_name)
+                if project_id and doc_id:
+                    doc_ref = db.collection("sow_projects").document(project_id).collection("source_documents").document(doc_id)
+                    doc_ref.set({"status": "OCR_FAILED", "status_message": f"Error in batch handler: {str(e)}"}, merge=True)
         except Exception as fe:
             print(f"Could not update Firestore with failure status: {fe}")
-
 
 def _extract_ids_from_path(gcs_path):
     """Helper to safely extract project_id and doc_id from a GCS path."""
     try:
         path_parts = os.path.normpath(gcs_path).split(os.sep)
         if len(path_parts) >= 2:
-            project_id = path_parts[0]
-            # The doc_id is the folder name, which is the second part of the path
-            doc_id = path_parts[1]
-            return project_id, doc_id
+            return path_parts[0], path_parts[1]
     except Exception:
         pass
     return None, None

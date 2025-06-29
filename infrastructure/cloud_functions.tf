@@ -8,7 +8,7 @@ resource "google_cloudfunctions2_function" "doc_preprocess_trigger" {
 
   build_config {
     runtime     = "python312"
-    entry_point = "doc-preprocess-trigger" # Use the function name from main.py
+    entry_point = "doc_preprocess_trigger"
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name
@@ -46,7 +46,7 @@ resource "google_cloudfunctions2_function" "legislative_analysis_func" {
 
   build_config {
     runtime     = "python312"
-    entry_point = "analyze_text"
+    entry_point = "legislative_analysis_func"
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name
@@ -62,8 +62,6 @@ resource "google_cloudfunctions2_function" "legislative_analysis_func" {
     service_account_email = google_service_account.master_sa.email
   }
 
-  # This is the ONLY trigger this function needs. It handles both
-  # initial creation and manual re-triggers from our API.
   event_trigger {
     trigger_region        = var.gcs_location
     event_type            = "google.cloud.storage.object.v1.finalized"
@@ -76,11 +74,6 @@ resource "google_cloudfunctions2_function" "legislative_analysis_func" {
   }
 }
 
-# --- DELETED: The entire 'google_eventarc_trigger' block for regeneration was here. ---
-# It is not needed because our API's re-analysis logic re-publishes the
-# 'google.cloud.storage.object.v1.finalized' event, which is handled
-# by the primary trigger above.
-
 # ------------------------------------------------------------------
 # Function #3: Batch Result Handler
 # ------------------------------------------------------------------
@@ -90,8 +83,8 @@ resource "google_cloudfunctions2_function" "batch_result_handler" {
   location = var.gcp_region
 
   build_config {
-    runtime     = "python312" # Standardize on a newer runtime
-    entry_point = "handle_batch_result"
+    runtime     = "python312"
+    entry_point = "batch_result_handler"
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name
@@ -127,8 +120,8 @@ resource "google_cloudfunctions2_function" "sow_generation_func" {
   location = var.gcp_region
 
   build_config {
-    runtime     = "python312" # Standardize on a newer runtime
-    entry_point = "generate_sow"
+    runtime     = "python312"
+    entry_point = "sow_generation_func"
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name
@@ -155,12 +148,12 @@ resource "google_cloudfunctions2_function" "template_generation_func" {
   location = var.gcp_region
 
   build_config {
-    runtime     = "python312" # Standardize on a newer runtime
-    entry_point = "generate_template"
+    runtime     = "python312"
+    entry_point = "template_generation_func"
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name
-        object = "template_generation_func.zip"
+        object = "template-generation-func.zip"
       }
     }
   }
@@ -183,8 +176,8 @@ resource "google_cloudfunctions2_function" "create_google_doc" {
   location = var.gcp_region
 
   build_config {
-    runtime     = "python312" # Standardize on a newer runtime
-    entry_point = "create_doc"
+    runtime     = "python312"
+    entry_point = "create_google_doc"
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name

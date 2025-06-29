@@ -142,15 +142,32 @@ app.get('/api/projects/:projectId', async (req, res) => {
         const projectRef = firestore.collection('sow_projects').doc(projectId);
         
         const projectDoc = await projectRef.get();
-        if (!projectDoc.exists) {
-            return res.status(404).send({ message: 'Project not found.' });
-        }
+        if (!projectDoc.exists) return res.status(404).send({ message: 'Project not found.' });
+        
         const projectData = projectDoc.data();
     
+        // Fetch source documents (existing logic)
         const sourceDocsSnapshot = await projectRef.collection('source_documents').orderBy('createdAt').get();
         const sourceDocuments = sourceDocsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-        res.status(200).send({ ...projectData, id: projectDoc.id, sourceDocuments });
+
+        // --- NEW: Fetch generated SOWs ---
+        const generatedSowsSnapshot = await projectRef.collection('generated_sow').orderBy('createdAt', 'desc').get();
+        const generatedSows = generatedSowsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            // Convert Firestore timestamp to string for JSON transport
+            if (data.createdAt && data.createdAt.toDate) {
+                data.createdAt = data.createdAt.toDate().toISOString();
+            }
+            return { id: doc.id, ...data };
+        });
+
+        // Combine all data and send response
+        res.status(200).send({ 
+            ...projectData, 
+            id: projectDoc.id, 
+            sourceDocuments,
+            generatedSows // <-- Add the new array to the response
+        });
     
       } catch (error) {
         console.error(`!!! Error fetching project details for ${req.params.projectId}:`, error);
@@ -232,6 +249,102 @@ app.get('/api/projects/:projectId/documents/:docId', async (req, res) => {
     res.status(500).json({ message: 'Could not fetch source document details.' });
   }
 });
+
+// Add this new route to backend/server.js
+
+/**
+ * Fetches a single generated SOW and its parent project's name.
+ */
+app.get('/api/projects/:projectId/sows/:sowId', async (req, res) => {
+  try {
+    const { projectId, sowId } = req.params;
+
+    const projectDoc = await firestore.collection('sow_projects').doc(projectId).get();
+    if (!projectDoc.exists) return res.status(404).json({ message: 'Project not found.' });
+
+    const sowDoc = await firestore.collection('sow_projects').doc(projectId).collection('generated_sow').doc(sowId).get();
+    if (!sowDoc.exists) return res.status(404).json({ message: 'SOW not found.' });
+
+    res.status(200).json({
+      project: { id: projectDoc.id, name: projectDoc.data().projectName },
+      sow: { id: sowDoc.id, ...sowDoc.data() }
+    });
+
+  } catch (error) {
+    console.error(`!!! Error fetching SOW ${req.params.sowId}:`, error);
+    res.status(500).json({ message: 'Could not fetch SOW details.' });
+  }
+});
+
+// Add this new route to backend/server.js
+
+/**
+ * Updates a single generated SOW document (e.g., to rename it).
+ */
+app.put('/api/projects/:projectId/sows/:sowId', async (req, res) => {
+  try {
+    const { projectId, sowId } = req.params;
+    const updateData = req.body; // e.g., { templateName: "New Name" }
+
+    if (!updateData || Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: 'Request body cannot be empty.' });
+    }
+
+    console.log(`Updating SOW ${sowId} in project ${projectId} with:`, updateData);
+
+    const sowRef = firestore
+      .collection('sow_projects')
+      .doc(projectId)
+      .collection('generated_sow')
+      .doc(sowId);
+
+    await sowRef.update(updateData);
+    
+    res.status(200).json({ message: 'SOW updated successfully.' });
+
+  } catch (error) {
+    console.error(`!!! Error updating SOW ${req.params.sowId}:`, error);
+    res.status(500).json({ message: 'Could not update SOW.' });
+  }
+});
+
+// Add this new route to backend/server.js
+
+/**
+ * Deletes a single generated SOW and its associated Google Doc.
+ */
+app.delete('/api/projects/:projectId/sows/:sowId', async (req, res) => {
+  try {
+    const { projectId, sowId } = req.params;
+    console.log(`Deleting SOW ${sowId} from project ${projectId}`);
+
+    const sowRef = firestore
+      .collection('sow_projects')
+      .doc(projectId)
+      .collection('generated_sow')
+      .doc(sowId);
+
+    const sowDoc = await sowRef.get();
+
+    // Check if the SOW has a linked Google Doc that needs to be deleted
+    if (sowDoc.exists && sowDoc.data().googleDocUrl) {
+      // NOTE: For simplicity, we are not deleting the actual Google Doc file,
+      // as it requires the Google Drive API and more complex permissions.
+      // We are just unlinking it by deleting the document from our system.
+      // A future enhancement could be to implement true file deletion.
+      console.log(`SOW had a linked Google Doc. The link will be removed.`);
+    }
+
+    // Delete the Firestore document for the SOW
+    await sowRef.delete();
+    
+    res.status(200).json({ message: 'SOW deleted successfully.' });
+
+  } catch (error) {
+    console.error(`!!! Error deleting SOW ${req.params.sowId}:`, error);
+    res.status(500).json({ message: 'Could not delete SOW.' });
+  }
+});
 app.put('/api/projects/:projectId/source_documents/:docId', async (req, res) => {
     // ... code from previous version ...
     try {
@@ -247,42 +360,53 @@ app.put('/api/projects/:projectId/source_documents/:docId', async (req, res) => 
       }
 });
 
+// Replace the existing regenerate route in backend/server.js with this robust version
 app.post('/api/projects/:projectId/source_documents/:docId/regenerate', async (req, res) => {
-    const { projectId, docId } = req.params;
     try {
+        const { projectId, docId } = req.params;
         console.log(`--- Re-analysis request for doc ${docId} in project ${projectId} ---`);
 
-        // 1. Get the document details to find the original GCS path
+        // --- THIS IS THE ROBUST FIX ---
+        // 1. Re-fetch the latest settings directly from Firestore for this specific request.
+        // This avoids using stale settings loaded at server startup.
+        const settingsDoc = await firestore.collection('settings').doc('global_config').get();
+        if (!settingsDoc.exists) {
+            throw new Error("CRITICAL: Global config document not found in Firestore!");
+        }
+        const currentSettings = settingsDoc.data();
+        const topicName = currentSettings.eventarc_gcs_uploads_topic;
+        const bucketName = currentSettings.gcs_uploads_bucket;
+
+        if (!topicName || !bucketName) {
+            throw new Error("Required 'eventarc_gcs_uploads_topic' or 'gcs_uploads_bucket' not in settings.");
+        }
+        
+        // 2. Get document details to find the original GCS path
         const docRef = firestore.collection('sow_projects').doc(projectId).collection('source_documents').doc(docId);
         const doc = await docRef.get();
         if (!doc.exists) {
             return res.status(404).json({ message: 'Document not found.' });
         }
-        const docData = doc.data();
-        const gcsFilename = `${projectId}/${docId}/${docData.originalFilename}`;
-        const bucketName = globalSettings.gcs_uploads_bucket;
-
-        // 2. Update the document status in Firestore immediately for UI feedback
+        const gcsFilename = `${projectId}/${docId}/${doc.data().originalFilename}`;
+        
+        // 3. Update Firestore status for immediate UI feedback
         await docRef.update({ status: 'RE_ANALYZING' });
 
-        // 3. Manually publish a message to the Eventarc topic, simulating a new file upload
-        const topicName = globalSettings.eventarc_gcs_uploads_topic;
-        if (!topicName) {
-            console.error('!!! CRITICAL: eventarc_gcs_uploads_topic is not defined in global_config settings.');
-            return res.status(500).json({ message: 'Server is not configured for re-analysis.' });
-        }
-        const eventData = { bucket: bucketName, name: gcsFilename };
+        // 4. Publish the correctly formatted message using the fresh settings
+        const cloudEventData = { bucket: bucketName, name: gcsFilename };
+        const dataBuffer = Buffer.from(JSON.stringify(cloudEventData));
+        
+        await pubsub.topic(topicName).publishMessage({ data: dataBuffer });
 
-        console.log(`Publishing event to topic ${topicName} with payload:`, eventData);
-        await pubsub.topic(topicName).publishMessage({ json: eventData });
-
-        res.status(200).json({ message: 'Re-analysis triggered successfully.' });
+        console.log(`Successfully published re-analysis event to topic: ${topicName}`);
+        res.status(200).send({ message: 'Re-analysis triggered successfully.' });
 
     } catch (error) {
-        console.error(`!!! Error triggering re-analysis for doc ${docId} in project ${projectId}:`, error);
-        res.status(500).json({ message: 'Could not trigger re-analysis.' });
+        console.error('!!! Error triggering re-analysis:', error);
+        res.status(500).send({ message: 'Could not trigger re-analysis.' });
     }
 });
+
 // TEMPLATE & PROMPT ENDPOINTS
 app.get('/api/templates', async (req, res) => {
     try {
@@ -493,7 +617,31 @@ app.post('/api/generate-template', async (req, res) => {
     res.status(500).json({ message: 'Could not proxy request to template generation function.' });
   }
 });
-// (Add other proxy routes here if needed)
+// In backend/server.js, find the existing '/api/create-google-doc' route
+// and replace it with this:
+
+app.post('/api/create-google-doc', async (req, res) => {
+    try {
+        const { projectId, sowId } = req.body; // <-- sowId is now expected
+        const functionUrl = globalSettings.create_google_doc_func_url;
+        
+        if (!functionUrl) {
+            return res.status(500).json({ message: 'Google Doc creation function URL is not configured.' });
+        }
+
+        const client = await auth.getIdTokenClient(functionUrl);
+        const response = await client.request({
+            url: functionUrl,
+            method: 'POST',
+            data: { projectId, sowId } // <-- Pass both IDs
+        });
+        
+        res.status(response.status).send(response.data);
+    } catch (error) {
+        console.error('!!! Error proxying to create-google-doc-func:', error.response ? error.response.data : error);
+        res.status(500).send({ message: 'Could not proxy to Google Doc creation function.' });
+    }
+});
 
 // --- UTILITY ENDPOINTS ---
 

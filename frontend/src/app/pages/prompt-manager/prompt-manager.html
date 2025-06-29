@@ -46,7 +46,7 @@
                   placeholder="Enter the AI prompt text here..."></textarea>
         
         <div class="actions">
-          <button (click)="savePrompt()" [disabled]="isPristine() || isSaving">
+          <button (click)="savePromptContent()" [disabled]="isPristine() || isSaving">
             {{ isSaving ? 'Saving...' : 'Save Content' }}
           </button>
           <span class="status-message">{{ statusMessage }}</span>

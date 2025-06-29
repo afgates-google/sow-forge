@@ -34,16 +34,26 @@
             </div>
           </ng-template>
         </div>
+
+        <!-- THIS IS THE NEW BLOCK -->
+        <div class="project-status-line">
+          <b>Status:</b> 
+          <span class="status-tag" [ngClass]="'status-' + project.status.toLowerCase().replace('_', '-')">
+            {{ project.status.replace('_', ' ') | titlecase }}
+          </span>
+        </div>
+        <!-- END OF NEW BLOCK -->
+
         <div class="project-meta">
           <span>ID: {{ project.id }}</span>
           <span>Created: {{ project.createdAt | date:'short' }}</span>
         </div>
       </div>
       <div class="project-actions">
-        <button class="action-btn-primary" (click)="viewProject(project.id, project.status)">
-          {{ project.status === 'SOW_GENERATED' ? 'View SOW' : 'View Status' }}
-          <span class="material-symbols-outlined">arrow_forward</span>
-        </button>
+        <a [routerLink]="['/projects', project.id]" class="action-btn-primary">
+          View Project
+          <!-- <span class="material-symbols-outlined">arrow_forward</span> -->
+        </a>
         <button class="action-btn-icon" (click)="deleteProject(project.id, project.projectName)" title="Delete Project">
           <span class="material-symbols-outlined">delete</span>
         </button>

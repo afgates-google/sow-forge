@@ -50,8 +50,22 @@
       <div class="name-container">
         <div *ngIf="editingDocId !== doc.id; else editDocBlock">
           <div class="name-view">
+            <!-- The document name is no longer a link -->
             <span class="file-name">{{ doc.displayName }}</span>
-            <span class="material-symbols-outlined edit-icon" (click)="startDocNameEdit(doc)">edit_square</span>
+          
+            <!-- Group the icons together -->
+            <div class="icon-actions">
+              <!-- NEW: "View Analysis" icon, shown only on success -->
+              <a *ngIf="doc.status === 'ANALYZED_SUCCESS'" 
+                 [routerLink]="['/projects', project.id, 'documents', doc.id]"
+                 class="action-icon-link"
+                 title="View Analysis Results">
+                <span class="material-symbols-outlined">plagiarism</span>
+              </a>
+          
+              <!-- The existing "Edit Name" icon -->
+              <span class="material-symbols-outlined edit-icon" (click)="startDocNameEdit(doc)">edit_square</span>
+            </div>
           </div>
         </div>
         <ng-template #editDocBlock>
@@ -84,9 +98,58 @@
     </div>
   </div>
     
-    <!-- SOW Generation Controls -->
-    <div class="generation-controls" *ngIf="isAnalysisComplete">
-      <h3>Generate Statement of Work</h3>
+    <!-- Add this new section to project-status.html -->
+
+    <div *ngIf="project.generatedSows && project.generatedSows.length > 0" class="generated-sows-section">
+      <h3>Generated Statements of Work</h3>
+      <div class="sow-list">
+        <div class="sow-item" *ngFor="let sow of project.generatedSows">
+          <div class="sow-info">
+
+            <!-- This is the new conditional block for view/edit mode -->
+            <div *ngIf="editingSowId !== sow.id; else editSowNameBlock">
+              <!-- View Mode -->
+              <div class="name-view">
+                <span class="sow-name">SOW: {{ sow.templateName }}</span>
+                <span class="material-symbols-outlined edit-icon" (click)="startSowNameEdit(sow)" title="Rename SOW">
+                  edit_square
+                </span>
+              </div>
+            </div>
+
+            <!-- Edit Mode -->
+            <ng-template #editSowNameBlock>
+              <div class="edit-form-inline">
+                <input type="text" [(ngModel)]="sow.templateName" (keyup.enter)="saveSowName(sow)" (keyup.escape)="cancelSowNameEdit(sow)">
+                <button class="save-btn" (click)="saveSowName(sow)" title="Save"><span class="material-symbols-outlined">check</span></button>
+                <button class="cancel-btn" (click)="cancelSowNameEdit(sow)" title="Cancel"><span class="material-symbols-outlined">close</span></button>
+              </div>
+            </ng-template>
+
+            <span class="sow-meta">Generated on: {{ sow.createdAt | date:'short' }} | Template: {{ sow.templateId }}</span>
+          </div>
+          <div class="sow-actions">
+            <!-- NEW LINK: To the refactored editor -->
+            <a [routerLink]="['/projects', project.id, 'sows', sow.id, 'editor']" class="btn-secondary">
+              View SOW
+            </a>
+            <!-- If Google Doc exists, show a link to it -->
+            <a *ngIf="sow.googleDocUrl" [href]="sow.googleDocUrl" target="_blank" class="btn-primary">
+              View Google Doc
+            </a>
+            
+            <!-- THIS IS THE NEW BUTTON -->
+            <button class="action-btn-icon" (click)="deleteSow(sow)" title="Delete SOW">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOVED TO BOTTOM: The SOW generation controls -->
+    <div class="generation-controls">
+      <h3>Generate New Statement of Work</h3>
       <div class="control-group">
         <label for="template">Select SOW Template:</label>
         <select id="template" [(ngModel)]="selectedTemplateId">
