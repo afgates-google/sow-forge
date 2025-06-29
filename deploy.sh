@@ -1,12 +1,12 @@
 #!/bin/bash
-
-# SOW-Forge Full Backend Deployment Script
 #
-# This script automates the full backend deployment process after the code
-# has been checked out from Git. It zips all Cloud Functions, uploads them,
-# and applies the Terraform configuration to deploy/update the infrastructure.
+# SOW-Forge Full Backend Deployment Script (v2)
 #
-# USAGE: Run this script from the root of the 'sow-forge' project.
+# This script automates the full backend deployment process. It zips all
+# Cloud Functions from the '/functions' directory, uploads them to GCS,
+# and then applies the Terraform configuration.
+#
+# USAGE: Run this script from the root of the 'sow-forge' project directory.
 # > chmod +x deploy.sh
 # > ./deploy.sh
 
@@ -14,14 +14,14 @@
 GCS_SOURCE_BUCKET="sow-forge-texas-dmv-functions-source"
 
 # An array of all function directories to be zipped and uploaded.
-# This list must match the functions defined in cloud_functions.tf
+# This list must match the functions defined in your Terraform configuration.
 FUNCTIONS_TO_DEPLOY=(
-    "doc_preprocess_trigger"
-    "legislative_analysis_func"
-    "batch_result_handler"
-    "sow_generation_func"
-    "template_generation_func"
-    "create_google_doc"
+    "doc-preprocess-trigger"
+    "batch-result-handler"
+    "legislative-analysis-func"
+    "sow-generation-func"
+    "template-generation-func"
+    "create-google-doc"
 )
 
 # Exit immediately if a command exits with a non-zero status.
@@ -35,9 +35,9 @@ echo
 echo "[1/3] Zipping and uploading Cloud Function source code..."
 echo "--------------------------------------------------------"
 
-# Check if the backend directory exists
-if [ ! -d "backend" ]; then
-    echo "ERROR: 'backend' directory not found. Please run this script from the root of the 'sow-forge' project."
+# Check if the functions directory exists
+if [ ! -d "functions" ]; then
+    echo "ERROR: 'functions' directory not found. Please run this script from the root of the 'sow-forge' project."
     exit 1
 fi
 
@@ -45,7 +45,8 @@ fi
 START_DIR=$(pwd)
 
 for func_name in "${FUNCTIONS_TO_DEPLOY[@]}"; do
-    FUNC_DIR="$START_DIR/backend/$func_name"
+    # UPDATED: Path now points to the 'functions' directory
+    FUNC_DIR="$START_DIR/functions/$func_name"
     
     if [ -d "$FUNC_DIR" ]; then
         echo " > Processing function: $func_name"
@@ -75,7 +76,8 @@ done
 echo "--------------------------------------------------------"
 echo " All function sources uploaded successfully."
 echo
-cd "$START_OR" # Return to the starting directory
+# CORRECTED: Changed $START_OR to $START_DIR
+cd "$START_DIR"
 
 # --- Step 2: Initialize Terraform ---
 echo "[2/3] Initializing Terraform in the 'infrastructure' directory..."

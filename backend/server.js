@@ -3,6 +3,7 @@ const path = require('path');
 const cors = require('cors');
 const { Storage } = require('@google-cloud/storage');
 const { Firestore, FieldValue } = require('@google-cloud/firestore');
+const { PubSub } = require('@google-cloud/pubsub');
 const { GoogleAuth } = require('google-auth-library');
 
 const app = express();
@@ -10,7 +11,7 @@ const port = process.env.PORT || 8080;
 
 // --- 1. INITIALIZE GCLOUD CLIENTS ---
 console.log("Initializing Google Cloud clients with Application Default Credentials...");
-let firestore, storage, auth;
+let firestore, storage, auth, pubsub;
 const options = {};
 // FOR LOCAL DEVELOPMENT ONLY: Check for a service account key
 if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
@@ -24,6 +25,7 @@ try {
   firestore = new Firestore();
   storage = new Storage();
   auth = new GoogleAuth();
+  pubsub = new PubSub();
   console.log("✅ Google Cloud clients initialized successfully.");
 } catch (error) {
   console.error('!!! CRITICAL: FAILED TO INITIALIZE GCLOUD CLIENTS !!!', error);
@@ -245,6 +247,42 @@ app.put('/api/projects/:projectId/source_documents/:docId', async (req, res) => 
       }
 });
 
+app.post('/api/projects/:projectId/source_documents/:docId/regenerate', async (req, res) => {
+    const { projectId, docId } = req.params;
+    try {
+        console.log(`--- Re-analysis request for doc ${docId} in project ${projectId} ---`);
+
+        // 1. Get the document details to find the original GCS path
+        const docRef = firestore.collection('sow_projects').doc(projectId).collection('source_documents').doc(docId);
+        const doc = await docRef.get();
+        if (!doc.exists) {
+            return res.status(404).json({ message: 'Document not found.' });
+        }
+        const docData = doc.data();
+        const gcsFilename = `${projectId}/${docId}/${docData.originalFilename}`;
+        const bucketName = globalSettings.gcs_uploads_bucket;
+
+        // 2. Update the document status in Firestore immediately for UI feedback
+        await docRef.update({ status: 'RE_ANALYZING' });
+
+        // 3. Manually publish a message to the Eventarc topic, simulating a new file upload
+        const topicName = globalSettings.eventarc_gcs_uploads_topic;
+        if (!topicName) {
+            console.error('!!! CRITICAL: eventarc_gcs_uploads_topic is not defined in global_config settings.');
+            return res.status(500).json({ message: 'Server is not configured for re-analysis.' });
+        }
+        const eventData = { bucket: bucketName, name: gcsFilename };
+
+        console.log(`Publishing event to topic ${topicName} with payload:`, eventData);
+        await pubsub.topic(topicName).publishMessage({ json: eventData });
+
+        res.status(200).json({ message: 'Re-analysis triggered successfully.' });
+
+    } catch (error) {
+        console.error(`!!! Error triggering re-analysis for doc ${docId} in project ${projectId}:`, error);
+        res.status(500).json({ message: 'Could not trigger re-analysis.' });
+    }
+});
 // TEMPLATE & PROMPT ENDPOINTS
 app.get('/api/templates', async (req, res) => {
     try {
@@ -293,37 +331,42 @@ app.get('/api/templates/:templateId', async (req, res) => {
 
 // Add this new route to backend/server.js to handle template updates
 app.put('/api/templates/:templateId', async (req, res) => {
-  try {
     const { templateId } = req.params;
-    // The new content will be in the body of the PUT request
-    const { markdownContent } = req.body;
+    try {
+        const { markdownContent, ...metadataToUpdate } = req.body; // Separate content from metadata
 
-    // A safety check to make sure content was actually sent
-    if (markdownContent === undefined) {
-      return res.status(400).json({ message: 'Missing markdownContent in request body.' });
+        // Validate that we have something to update
+        if (markdownContent === undefined && Object.keys(metadataToUpdate).length === 0) {
+            return res.status(400).json({ message: 'No update data (markdownContent or metadata) provided.' });
+        }
+
+        console.log(`Updating template: ${templateId}`);
+        const docRef = firestore.collection('templates').doc(templateId);
+
+        // 1. If there's markdown content, update the GCS file
+        if (markdownContent !== undefined) {
+            console.log('-> Updating GCS content...');
+            const doc = await docRef.get();
+            if (!doc.exists) {
+                return res.status(404).json({ message: 'Template not found.' });
+            }
+            const gcsPath = doc.data().gcs_path;
+            const file = storage.bucket(globalSettings.gcs_templates_bucket).file(gcsPath);
+            await file.save(markdownContent, { contentType: 'text/markdown' });
+        }
+
+        // 2. If there's other metadata (like a new name), update Firestore
+        if (Object.keys(metadataToUpdate).length > 0) {
+            console.log('-> Updating Firestore metadata:', metadataToUpdate);
+            await docRef.update(metadataToUpdate);
+        }
+        
+        res.status(200).json({ message: 'Template updated successfully.' });
+
+    } catch (error) {
+        console.error(`!!! Error updating template ${templateId}:`, error);
+        res.status(500).json({ message: 'Could not update template.' });
     }
-
-    console.log(`Updating content for template: ${templateId}`);
-
-    // 1. Get metadata from Firestore to find the file path
-    const docRef = firestore.collection('templates').doc(templateId);
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      return res.status(404).json({ message: 'Template not found.' });
-    }
-    const gcsPath = doc.data().gcs_path;
-
-    // 2. Overwrite the file in GCS with the new content
-    const file = storage.bucket(globalSettings.gcs_templates_bucket).file(gcsPath);
-    await file.save(markdownContent, { contentType: 'text/markdown' });
-    
-    // 3. Send a success response
-    res.status(200).json({ message: 'Template updated successfully.' });
-
-  } catch (error) {
-    console.error(`!!! Error updating template ${req.params.templateId}:`, error);
-    res.status(500).json({ message: 'Could not update template content.' });
-  }
 });
 
 // Add this route to backend/server.js to handle template deletion
@@ -382,6 +425,23 @@ app.get('/api/prompts/:promptId', async (req, res) => {
       console.error(`!!! Error fetching prompt ${req.params.promptId}:`, error);
       res.status(500).json({ message: 'Could not fetch prompt.' });
   }
+});
+
+app.put('/api/prompts/:promptId', async (req, res) => {
+    const { promptId } = req.params;
+    try {
+        const updateData = req.body; // Can contain { name } or { prompt_text }
+        
+        console.log(`Updating prompt ${promptId} with data:`, updateData);
+
+        const docRef = firestore.collection('prompts').doc(promptId);
+        await docRef.update(updateData);
+        
+        res.status(200).json({ message: 'Prompt updated successfully.' });
+    } catch (error) {
+        console.error(`!!! Error updating prompt ${promptId}:`, error);
+        res.status(500).json({ message: 'Could not update prompt.' });
+    }
 });
 
 // (Add other template/prompt routes here if needed)

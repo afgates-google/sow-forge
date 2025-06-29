@@ -1,0 +1,7 @@
+functions-framework==3.*
+# Let pip find the correct, compatible versions for Google libraries
+google-cloud-documentai
+google-cloud-storage
+google-cloud-firestore
+# Pin the non-Google dependency
+PyPDF2==3.0.1

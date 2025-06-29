@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------
-# Function #1: Document Pre-processing (Correct)
+# Function #1: Document Pre-processing
 # ------------------------------------------------------------------
 resource "google_cloudfunctions2_function" "doc_preprocess_trigger" {
   project  = var.gcp_project_id
@@ -8,11 +8,11 @@ resource "google_cloudfunctions2_function" "doc_preprocess_trigger" {
 
   build_config {
     runtime     = "python312"
-    entry_point = "process_pdf"
+    entry_point = "doc-preprocess-trigger" # Use the function name from main.py
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name
-        object = "doc_preprocess_trigger.zip"
+        object = "doc-preprocess-trigger.zip"
       }
     }
   }
@@ -37,8 +37,7 @@ resource "google_cloudfunctions2_function" "doc_preprocess_trigger" {
 }
 
 # ------------------------------------------------------------------
-# Function #2: Legislative Analysis (Corrected)
-# We define the function with its PRIMARY trigger (file creation).
+# Function #2: Dynamic Text Analysis
 # ------------------------------------------------------------------
 resource "google_cloudfunctions2_function" "legislative_analysis_func" {
   project  = var.gcp_project_id
@@ -51,19 +50,20 @@ resource "google_cloudfunctions2_function" "legislative_analysis_func" {
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name
-        object = "legislative_analysis_func.zip" 
+        object = "legislative-analysis-func.zip"
       }
     }
   }
 
   service_config {
     max_instance_count    = 5
-    available_memory      = "512Mi" 
-    timeout_seconds       = 540 
+    available_memory      = "512Mi"
+    timeout_seconds       = 540
     service_account_email = google_service_account.master_sa.email
   }
 
-  # --- CRITICAL FIX: Re-add the primary event trigger ---
+  # This is the ONLY trigger this function needs. It handles both
+  # initial creation and manual re-triggers from our API.
   event_trigger {
     trigger_region        = var.gcs_location
     event_type            = "google.cloud.storage.object.v1.finalized"
@@ -76,34 +76,13 @@ resource "google_cloudfunctions2_function" "legislative_analysis_func" {
   }
 }
 
-# --- This separate trigger now ONLY handles the regeneration event ---
-resource "google_eventarc_trigger" "analysis_regeneration_trigger" {
-  project  = var.gcp_project_id
-  name     = "analysis-regeneration-trigger"
-  location = var.gcp_region
-
-  destination {
-    cloud_run_service {
-      service = google_cloudfunctions2_function.legislative_analysis_func.name
-      region  = var.gcp_region
-    }
-  }
-
-  matching_criteria {
-    attribute = "type"
-    value     = "google.cloud.storage.object.v1.metadataUpdate" # The regeneration event
-  }
-  
-  matching_criteria {
-    attribute = "bucket"
-    value     = google_storage_bucket.app_buckets["processed_text"].name
-  }
-
-  service_account = google_service_account.master_sa.email
-}
+# --- DELETED: The entire 'google_eventarc_trigger' block for regeneration was here. ---
+# It is not needed because our API's re-analysis logic re-publishes the
+# 'google.cloud.storage.object.v1.finalized' event, which is handled
+# by the primary trigger above.
 
 # ------------------------------------------------------------------
-# Function #3: Batch Result Handler (Main Pipeline)
+# Function #3: Batch Result Handler
 # ------------------------------------------------------------------
 resource "google_cloudfunctions2_function" "batch_result_handler" {
   project  = var.gcp_project_id
@@ -111,12 +90,12 @@ resource "google_cloudfunctions2_function" "batch_result_handler" {
   location = var.gcp_region
 
   build_config {
-    runtime     = "python310"
+    runtime     = "python312" # Standardize on a newer runtime
     entry_point = "handle_batch_result"
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name
-        object = "batch_result_handler.zip"
+        object = "batch-result-handler.zip"
       }
     }
   }
@@ -148,12 +127,12 @@ resource "google_cloudfunctions2_function" "sow_generation_func" {
   location = var.gcp_region
 
   build_config {
-    runtime     = "python310"
+    runtime     = "python312" # Standardize on a newer runtime
     entry_point = "generate_sow"
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name
-        object = "sow_generation_func.zip"
+        object = "sow-generation-func.zip"
       }
     }
   }
@@ -176,7 +155,7 @@ resource "google_cloudfunctions2_function" "template_generation_func" {
   location = var.gcp_region
 
   build_config {
-    runtime     = "python310"
+    runtime     = "python312" # Standardize on a newer runtime
     entry_point = "generate_template"
     source {
       storage_source {
@@ -204,12 +183,12 @@ resource "google_cloudfunctions2_function" "create_google_doc" {
   location = var.gcp_region
 
   build_config {
-    runtime     = "python310"
+    runtime     = "python312" # Standardize on a newer runtime
     entry_point = "create_doc"
     source {
       storage_source {
         bucket = google_storage_bucket.app_buckets["functions_source"].name
-        object = "create_google_doc.zip"
+        object = "create-google-doc.zip"
       }
     }
   }
