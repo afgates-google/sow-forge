@@ -1,0 +1,8 @@
+# Ignore local development artifacts and secrets
+node_modules
+npm-debug.log
+.env
+sa-key.json
+
+# Ignore OS-specific files
+.DS_Store

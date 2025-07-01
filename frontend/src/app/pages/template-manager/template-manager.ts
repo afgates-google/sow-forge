@@ -16,13 +16,11 @@ import { switchMap } from 'rxjs/operators';
 export class TemplateManagerComponent implements OnInit {
   templates: any[] = [];
   
-  // State for new template creation
   newTemplateName = '';
   newTemplateDescription = '';
   stagedFiles: File[] = [];
   isCreating = false;
 
-  // --- State for inline editing of existing templates ---
   editingTemplateId: string | null = null;
   templateNameBeforeEdit = '';
 
@@ -51,7 +49,7 @@ export class TemplateManagerComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     if (input.files) {
       this.stagedFiles.push(...Array.from(input.files));
-      input.value = ''; // Allow selecting the same file again
+      input.value = '';
     }
   }
 
@@ -59,24 +57,32 @@ export class TemplateManagerComponent implements OnInit {
     this.stagedFiles.splice(index, 1);
   }
 
+  // THIS IS THE CORRECTED METHOD
   createTemplate(): void {
     if (!this.newTemplateName || this.stagedFiles.length === 0 || this.isCreating) {
       return;
     }
     this.isCreating = true;
 
+    // Step 1: Get a signed URL for each sample file.
     const uploadObservables = this.stagedFiles.map(file => 
       this.apiService.getUploadUrl(file.name, file.type, 'templates')
     );
 
+    // Step 2: Once all URLs are fetched, upload the files to GCS.
     forkJoin(uploadObservables).pipe(
       switchMap((responses: any[]) => {
         const uploadPromises = responses.map((res, index) => 
-          fetch(res.url, { method: 'PUT', body: this.stagedFiles[index] })
+          fetch(res.signedUrl, { // Use the 'signedUrl' property
+            method: 'PUT',
+            headers: { 'Content-Type': this.stagedFiles[index].type },
+            body: this.stagedFiles[index]
+          })
         );
         const gcsPaths = responses.map(res => res.gcsPath);
         return Promise.all(uploadPromises).then(() => gcsPaths);
       }),
+      // Step 3: Once all files are uploaded, call the function to generate the template.
       switchMap((gcsPaths: string[]) => {
         return this.apiService.createTemplateFromSamples(
           this.newTemplateName, 
@@ -89,7 +95,7 @@ export class TemplateManagerComponent implements OnInit {
         alert(`Template "${this.newTemplateName}" created successfully!`);
         this.isCreating = false;
         this.resetForm();
-        this.loadTemplates();
+        this.loadTemplates(); // Refresh the list to show the new template
       },
       error: (err) => {
         alert('Failed to create template. Please check the console.');
@@ -122,6 +128,7 @@ export class TemplateManagerComponent implements OnInit {
       this.editingTemplateId = null;
       return;
     }
+    // This is the correct usage for the update/rename action.
     this.apiService.updateTemplate(template.id, { name: template.name }).subscribe(() => {
       this.editingTemplateId = null;
     });

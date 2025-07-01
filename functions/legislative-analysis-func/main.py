@@ -2,7 +2,7 @@ import functions_framework
 import os
 import json
 import vertexai
-from vertexai.generative_models import GenerativeModel, GenerationConfig
+from vertexai.generative_models import GenerativeModel, GenerationConfig, HarmCategory, HarmBlockThreshold
 from google.cloud import storage, firestore
 import traceback
 
@@ -63,12 +63,35 @@ def legislative_analysis_func(cloud_event): # CORRECTED NAME
         model_name = global_settings.get('legislative_analysis_model', 'gemini-1.5-pro')
         model_temp = float(global_settings.get('analysis_model_temperature', 0.2))
         
+        # 1. Define safety settings
+        safety_settings = {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        }
+        
+        # 2. Update the GenerationConfig
         model = GenerativeModel(model_name)
-        generation_config = GenerationConfig(temperature=model_temp, response_mime_type="application/json")
+        generation_config = GenerationConfig(
+            temperature=model_temp,
+            response_mime_type="application/json"
+        )
         
         document_text = storage_client.bucket(bucket_name).blob(file_name).download_as_text()
         final_prompt = prompt_template.replace('{DOCUMENT_TEXT}', document_text)
-        response = model.generate_content(final_prompt, generation_config=generation_config)
+        
+        # 3. Add safety_settings to the generate_content call
+        response = model.generate_content(
+            final_prompt,
+            generation_config=generation_config,
+            safety_settings=safety_settings
+        )
+
+        # 4. Add a check for an empty response
+        if not response.candidates or not response.candidates[0].content.parts:
+            raise ValueError("The analysis model returned an empty response. This may be due to safety filters or an issue with the prompt.")
+
         analysis_result = json.loads(response.text)
 
         doc_ref.update({

@@ -3,7 +3,7 @@ import os
 import json
 import traceback
 import vertexai
-from vertexai.generative_models import GenerativeModel, GenerationConfig
+from vertexai.generative_models import GenerativeModel, GenerationConfig, HarmCategory, HarmBlockThreshold
 from google.cloud import firestore, storage, documentai
 from google.api_core.client_options import ClientOptions
 
@@ -49,10 +49,35 @@ def template_generation_func(request): # CORRECTED NAME
         prompt_template = db.collection('prompts').document(prompt_id).get().to_dict().get('prompt_text')
         final_prompt = prompt_template.format(concatenated_text=concatenated_text)
 
+        # 1. Define safety settings
+        safety_settings = {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        }
+        
+        # 2. Update the GenerationConfig
         model = GenerativeModel(global_settings['sow_generation_model'])
-        config = GenerationConfig(temperature=float(global_settings['sow_generation_model_temperature']), max_output_tokens=int(global_settings['sow_generation_max_tokens']))
-        response = model.generate_content(final_prompt, generation_config=config)
+        config = GenerationConfig(
+            temperature=float(global_settings['sow_generation_model_temperature']),
+            max_output_tokens=int(global_settings['sow_generation_max_tokens'])
+        )
+
+        print("Sending template generation prompt to Vertex AI...")
+        # 3. Add safety_settings to the generate_content call
+        response = model.generate_content(
+            final_prompt,
+            generation_config=config,
+            safety_settings=safety_settings
+        )
+
+        # 4. Add a check for an empty response
+        if not response.candidates or not response.candidates[0].content.parts:
+            raise ValueError("The template generation model returned an empty response, likely due to safety filters.")
+            
         generated_text = response.text.strip().replace("```markdown", "").replace("```", "")
+        print("Received generated template from Vertex AI.")
         
         template_id = _save_template(name, desc, generated_text, sample_files)
         print(f"SUCCESS: Saved new template with ID: {template_id}")

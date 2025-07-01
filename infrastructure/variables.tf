@@ -70,3 +70,9 @@ variable "bucket_names" {
     batch_output     = "batch-output"
   }
 }
+# A unique suffix, typically a timestamp, passed from the deploy script
+# to force a clean build of Cloud Functions and bypass caching issues.
+variable "deployment_suffix" {
+  type        = string
+  description = "A unique suffix to force redeployment of functions."
+}

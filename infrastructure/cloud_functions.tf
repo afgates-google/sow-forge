@@ -136,6 +136,7 @@ resource "google_cloudfunctions2_function" "sow_generation_func" {
     timeout_seconds                = 540
     all_traffic_on_latest_revision = true
     service_account_email          = google_service_account.master_sa.email
+    ingress_settings               = "ALLOW_INTERNAL_ONLY"
   }
 }
 
@@ -164,6 +165,7 @@ resource "google_cloudfunctions2_function" "template_generation_func" {
     available_memory               = "512Mi"
     all_traffic_on_latest_revision = true
     service_account_email          = google_service_account.master_sa.email
+    ingress_settings               = "ALLOW_INTERNAL_ONLY"
   }
 }
 
@@ -191,5 +193,6 @@ resource "google_cloudfunctions2_function" "create_google_doc" {
     timeout_seconds                = 120
     all_traffic_on_latest_revision = true
     service_account_email          = google_service_account.master_sa.email
+    ingress_settings               = "ALLOW_INTERNAL_ONLY"
   }
 }

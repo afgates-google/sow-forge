@@ -2,7 +2,7 @@ import functions_framework
 import os
 import json
 import vertexai
-from vertexai.generative_models import GenerativeModel, GenerationConfig
+from vertexai.generative_models import GenerativeModel, GenerationConfig, HarmCategory, HarmBlockThreshold
 from google.cloud import firestore, storage
 import traceback
 
@@ -68,9 +68,34 @@ def sow_generation_func(request):
         project_name = _get_firestore_prop(project_ref, 'projectName', 'Untitled Project')
         final_prompt = _assemble_final_prompt(sow_prompt_template, template_content, aggregated_analysis, project_name)
         
-        config = GenerationConfig(temperature=float(global_settings['sow_generation_model_temperature']), max_output_tokens=int(global_settings['sow_generation_max_tokens']))
-        response = model.generate_content(final_prompt, generation_config=config)
+        # 1. Define less strict safety settings
+        safety_settings = {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        }
+
+        # 2. Update the GenerationConfig
+        config = GenerationConfig(
+            temperature=float(global_settings['sow_generation_model_temperature']),
+            max_output_tokens=int(global_settings['sow_generation_max_tokens']) # This will now be the new, larger value
+        )
+
+        print("Sending final merge prompt to Vertex AI...")
+        # 3. Add safety_settings to the generate_content call
+        response = model.generate_content(
+            final_prompt,
+            generation_config=config,
+            safety_settings=safety_settings
+        )
+
+        # 4. Add a check for an empty response to prevent crashes
+        if not response.candidates or not response.candidates[0].content.parts:
+            raise ValueError("The model returned an empty response, likely due to safety filters or token limits.")
+
         generated_sow_text = response.text.strip().replace("```markdown", "").replace("```", "")
+        print("Received final merged SOW from Vertex AI.")
 
         new_sow_ref = project_ref.collection('generated_sow').document()
         new_sow_ref.set({
