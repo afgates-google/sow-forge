@@ -95,3 +95,14 @@ resource "google_project_iam_member" "compute_sa_can_run_builds" {
   role    = "roles/cloudbuild.serviceAgent"
   member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
 }
+
+# --- PUBLIC ACCESS FOR CLOUD RUN BACKEND ---
+# This resource makes the main backend server public, so the Angular
+# frontend can call it without authentication.
+resource "google_cloud_run_v2_service_iam_member" "allow_unauthenticated_invocations" {
+  project  = var.gcp_project_id
+  location = var.gcp_region
+  name     = google_cloud_run_v2_service.backend_server.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
