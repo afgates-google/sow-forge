@@ -130,11 +130,9 @@ app.get('/api/projects/:projectId/documents/:docId', async (req, res) => {
 app.post('/api/projects/:projectId/source_documents/:docId/regenerate', async (req, res) => {
   try {
     const { projectId, docId } = req.params;
-    const settingsDoc = await firestore.collection('settings').doc('global_config').get();
-    const currentSettings = settingsDoc.data();
-    const topicName = currentSettings.eventarc_gcs_uploads_topic;
-    const bucketName = currentSettings.gcs_uploads_bucket;
-    if (!topicName || !bucketName) throw new Error("Eventarc or GCS config missing.");
+    const topicName = globalSettings.eventarc_gcs_uploads_topic;
+    const bucketName = globalSettings.gcs_uploads_bucket;
+    if (!topicName || !bucketName) throw new Error("Eventarc or GCS config missing from global settings.");
     const docRef = firestore.collection('sow_projects').doc(projectId).collection('source_documents').doc(docId);
     const doc = await docRef.get();
     if (!doc.exists) return res.status(404).json({ message: 'Document not found.' });
@@ -330,13 +328,31 @@ app.post('/api/create-google-doc', async (req, res) => {
 async function startServer() {
   console.log('--- Initializing SOW-Forge Server ---');
   try {
+    // 1. Fetch settings from Firestore
     const settingsDoc = await firestore.collection('settings').doc('global_config').get();
     if (!settingsDoc.exists) {
       throw new Error("CRITICAL: Global config document 'settings/global_config' not found in Firestore!");
     }
     globalSettings = settingsDoc.data();
-    console.log('✅ Global settings loaded successfully.');
 
+    // 2. Validate that all required settings are present
+    const requiredSettings = [
+      'gcs_uploads_bucket',
+      'gcs_templates_bucket',
+      'eventarc_gcs_uploads_topic',
+      'sow_generation_func_url',
+      'create_google_doc_func_url'
+    ];
+
+    const missingSettings = requiredSettings.filter(key => !globalSettings[key]);
+
+    if (missingSettings.length > 0) {
+      throw new Error(`CRITICAL: The following required settings are missing from 'settings/global_config': ${missingSettings.join(', ')}`);
+    }
+    
+    console.log('✅ Global settings loaded and validated successfully.');
+
+    // 3. Start the server
     app.listen(port, () => {
       console.log(`🚀 Server listening on port ${port}. SOW-Forge is ready!`);
     });

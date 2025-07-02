@@ -30,7 +30,9 @@ resource "google_project_iam_member" "master_sa_roles" {
     # Required for Eventarc to invoke this service account
     "roles/eventarc.eventReceiver",
     # Required to publish to Pub/Sub for re-analysis trigger
-    "roles/pubsub.publisher"
+    "roles/pubsub.publisher",
+    # Required for the backend server to create ID tokens for other services
+    "roles/iam.serviceAccountTokenCreator"
   ])
   project = var.gcp_project_id
   role    = each.key
