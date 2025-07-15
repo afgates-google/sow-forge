@@ -196,3 +196,20 @@ resource "google_cloudfunctions2_function" "create_google_doc" {
     ingress_settings               = "ALLOW_INTERNAL_ONLY"
   }
 }
+
+# --- Terraform Outputs ---
+# These outputs make the function URLs available to the deployment script.
+output "sow_generation_func_url" {
+  description = "The URL of the SOW generation function."
+  value       = google_cloudfunctions2_function.sow_generation_func.service_config[0].uri
+}
+
+output "template_generation_func_url" {
+  description = "The URL of the template generation function."
+  value       = google_cloudfunctions2_function.template_generation_func.service_config[0].uri
+}
+
+output "create_google_doc_func_url" {
+  description = "The URL of the create google doc function."
+  value       = google_cloudfunctions2_function.create_google_doc.service_config[0].uri
+}

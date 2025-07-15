@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://4200-w-admin-mc9if4o2.cluster-e3ppspjf3zfnqwaa5t6uqxhwjo.cloudworkstations.dev", "http://localhost:4200"],
+    "method": ["PUT", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Access-Control-Allow-Origin"],
+    "maxAgeSeconds": 3600
+  }
+]

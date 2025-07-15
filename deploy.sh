@@ -79,10 +79,39 @@ terraform apply -auto-approve -var="deployment_suffix=${TIMESTAMP}"
 cd "$START_DIR"
 echo "✔ All services deployed."
 
-
-# --- Step 4: Update Frontend Proxy ---
+# --- Step 4: Update Function URLs in Firestore ---
 echo
-echo "[4/4] Configuring frontend for deployed backend..."
+echo "[4/5] Updating function URLs in Firestore..."
+echo "--------------------------------------------"
+# Ensure python3-venv is installed
+sudo apt-get install -y python3.12-venv
+# Create a temporary virtual environment to avoid system conflicts
+python3 -m venv temp_venv
+source temp_venv/bin/activate
+# Install Python dependencies required by the setup script
+pip install -r functions/sow-generation-func/requirements.txt -q
+# Run the script to update Firestore
+python3 setup_firestore_settings.py
+# Deactivate and remove the virtual environment
+deactivate
+rm -rf temp_venv
+echo "✔ Firestore settings updated with latest function URLs."
+
+
+# --- Step 5: Force Restart of Backend Server ---
+echo
+echo "[5/6] Forcing restart of backend server to load new settings..."
+echo "----------------------------------------------------------------"
+gcloud run services update sow-forge-backend-server \
+  --region=${REGION} \
+  --update-env-vars="LAST_RESTART_TIMESTAMP=${TIMESTAMP}" \
+  --platform=managed > /dev/null
+echo "✔ Backend server restarted."
+
+
+# --- Step 6: Update Frontend Proxy ---
+echo
+echo "[6/7] Configuring frontend for deployed backend..."
 # ... (This part remains the same) ...
 BACKEND_URL=$(gcloud run services describe sow-forge-backend-server --platform managed --region ${REGION} --format 'value(status.url)')
 if [ -z "$BACKEND_URL" ]; then

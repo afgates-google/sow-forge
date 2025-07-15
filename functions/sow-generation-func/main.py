@@ -46,29 +46,45 @@ def sow_generation_func(request):
         if not all([project_id, template_id]):
             return "Missing 'projectId' or 'templateId' in request body", 400
         
-        project_ref = db.collection('sow_projects').document(project_id)
         print(f"--- SOW Generation for project: {project_id}, template: {template_id} ---")
+        project_ref = db.collection('sow_projects').document(project_id)
 
+        print("Step 1: Aggregating analyses...")
         all_requirements, all_summaries = _aggregate_analyses(project_ref)
         if not all_summaries:
             project_ref.update({'status': 'SOW_GENERATION_FAILED', 'error_message': 'No successfully analyzed documents found.'})
             return "No successfully analyzed documents found.", 400
+        print(f"  -> Found {len(all_requirements)} requirements and {len(all_summaries)} summaries.")
 
+        print("Step 2: Creating meta summary...")
         model = GenerativeModel(global_settings['sow_generation_model'])
         aggregated_analysis = {
             "project_overview": _create_meta_summary(model, all_summaries),
             "all_requirements": all_requirements
         }
+        print("  -> Meta summary created.")
 
-        template_doc = db.collection('templates').document(template_id).get()
-        template_name = template_doc.to_dict().get('name', 'Unknown Template')
-        template_content = _get_gcs_content(global_settings['gcs_templates_bucket'], template_doc.to_dict().get('gcs_path'))
+        print(f"Step 3: Fetching template '{template_id}'...")
+        template_doc_ref = db.collection('templates').document(template_id)
+        template_doc = template_doc_ref.get()
+        if not template_doc.exists:
+            raise ValueError(f"Template document '{template_id}' not found in Firestore.")
+        
+        template_data = template_doc.to_dict()
+        template_name = template_data.get('name', 'Unknown Template')
+        template_gcs_path = template_data.get('gcs_path')
+        if not template_gcs_path:
+            raise ValueError(f"Template '{template_id}' is missing the 'gcs_path' field in Firestore.")
+        
+        template_content = _get_gcs_content(global_settings['gcs_templates_bucket'], template_gcs_path)
+        print(f"  -> Template '{template_name}' fetched successfully.")
 
+        print("Step 4: Assembling final prompt...")
         sow_prompt_template = _get_firestore_prop(db.collection('prompts').document(global_settings['sow_generation_prompt_id']), 'prompt_text')
         project_name = _get_firestore_prop(project_ref, 'projectName', 'Untitled Project')
         final_prompt = _assemble_final_prompt(sow_prompt_template, template_content, aggregated_analysis, project_name)
+        print("  -> Final prompt assembled.")
         
-        # 1. Define less strict safety settings
         safety_settings = {
             HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
             HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
@@ -76,27 +92,25 @@ def sow_generation_func(request):
             HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
         }
 
-        # 2. Update the GenerationConfig
         config = GenerationConfig(
             temperature=float(global_settings['sow_generation_model_temperature']),
-            max_output_tokens=int(global_settings['sow_generation_max_tokens']) # This will now be the new, larger value
+            max_output_tokens=int(global_settings['sow_generation_max_tokens'])
         )
 
-        print("Sending final merge prompt to Vertex AI...")
-        # 3. Add safety_settings to the generate_content call
+        print("Step 5: Sending final merge prompt to Vertex AI...")
         response = model.generate_content(
             final_prompt,
             generation_config=config,
             safety_settings=safety_settings
         )
 
-        # 4. Add a check for an empty response to prevent crashes
         if not response.candidates or not response.candidates[0].content.parts:
             raise ValueError("The model returned an empty response, likely due to safety filters or token limits.")
 
         generated_sow_text = response.text.strip().replace("```markdown", "").replace("```", "")
-        print("Received final merged SOW from Vertex AI.")
+        print("  -> Received final merged SOW from Vertex AI.")
 
+        print("Step 6: Saving new SOW document to Firestore...")
         new_sow_ref = project_ref.collection('generated_sow').document()
         new_sow_ref.set({
             'createdAt': firestore.SERVER_TIMESTAMP,
@@ -104,10 +118,9 @@ def sow_generation_func(request):
             'templateName': template_name,
             'generatedSowText': generated_sow_text
         })
-
         project_ref.update({'status': 'SOW_GENERATED'})
+        print(f"  -> SUCCESS: Saved new SOW with ID '{new_sow_ref.id}' to project '{project_id}'.")
         
-        print(f"SUCCESS: Saved new SOW with ID '{new_sow_ref.id}' to project '{project_id}'.")
         return {'message': 'SOW generated successfully', 'sowId': new_sow_ref.id}, 200
 
     except Exception as e:
