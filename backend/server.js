@@ -13,6 +13,7 @@ const pinoHttp = require('pino-http');
 const { Storage } = require('@google-cloud/storage');
 const { Firestore, FieldValue } = require('@google-cloud/firestore');
 const { PubSub } = require('@google-cloud/pubsub');
+const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 const { GoogleAuth } = require('google-auth-library');
 const { VertexAI } = require('@google-cloud/vertexai');
 const { body, validationResult } = require('express-validator');
@@ -31,18 +32,37 @@ app.use(pinoHttp({ logger }));
 
 
 // --- 2. INITIALIZE GCLOUD CLIENTS ---
-logger.info("Initializing Google Cloud clients...");
 let firestore, storage, auth, pubsub;
-try {
-  firestore = new Firestore();
-  storage = new Storage();
-  auth = new GoogleAuth();
-  pubsub = new PubSub();
-  logger.info("✅ Google Cloud clients initialized successfully.");
-} catch (error) {
-  logger.fatal('!!! CRITICAL: FAILED TO INITIALIZE GCLOUD CLIENTS !!!', error);
-  process.exit(1);
+
+async function initializeGoogleCloudClients() {
+    try {
+        if (IS_PRODUCTION) {
+            // In production, use application default credentials
+            firestore = new Firestore();
+            storage = new Storage();
+            auth = new GoogleAuth();
+            pubsub = new PubSub();
+        } else {
+            // For local development, fetch the key from Secret Manager
+            const secretManager = new SecretManagerServiceClient();
+            const [version] = await secretManager.accessSecretVersion({
+                name: `projects/${process.env.GCLOUD_PROJECT}/secrets/sow-forge-sa-key/versions/latest`,
+            });
+            const secretPayload = version.payload.data.toString('utf8');
+            const credentials = JSON.parse(secretPayload);
+
+            firestore = new Firestore({ credentials });
+            storage = new Storage({ credentials });
+            auth = new GoogleAuth({ credentials });
+            pubsub = new PubSub({ credentials });
+        }
+        logger.info("✅ Google Cloud clients initialized successfully.");
+    } catch (error) {
+        logger.fatal('!!! CRITICAL: FAILED TO INITIALIZE GCLOUD CLIENTS !!!', error);
+        process.exit(1);
+    }
 }
+
 
 // --- 3. MIDDLEWARE & SETTINGS PLACEHOLDER ---
 let globalSettings;
@@ -52,7 +72,7 @@ app.use(express.json());
 const cors = require('cors');
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = require('../cors-config.json')[0].origin;
+    const { allowedOrigins } = require('./config');
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
       callback(null, true);
     } else {
@@ -97,7 +117,7 @@ app.post('/api/projects',
         const docRef = projectRef.collection('source_documents').doc();
         await docRef.set({ originalFilename: filename, displayName: filename, category, status: 'PENDING_UPLOAD', createdAt: FieldValue.serverTimestamp() });
         const gcsFilename = `${projectRef.id}/${docRef.id}/${filename}`;
-        const options = { version: 'v4', action: 'write', expires: Date.now() + 15 * 60 * 1000, contentType };
+        const options = { version: 'v4', action: 'write', expires: Date.now() + globalSettings.gcs_signed_url_expiration_minutes * 60 * 1000, contentType };
         const [url] = await storage.bucket(globalSettings.gcs_uploads_bucket).file(gcsFilename).getSignedUrl(options);
         return { docId: docRef.id, signedUrl: url, filename };
       }));
@@ -424,89 +444,13 @@ app.post('/api/generate-sow',
       return res.status(400).json({ errors: errors.array() });
     }
     try {
-      req.log.info({ body: req.body }, 'generate-sow called');
-      const { projectId, templateId } = req.body;
-
-      if (!projectId || !templateId) {
-        return res.status(400).send({ message: 'Missing projectId or templateId in request body' });
-      }
-
-      const projectRef = firestore.collection('sow_projects').doc(projectId);
-      const sourceDocsSnapshot = await projectRef.collection('source_documents').where('status', '==', 'ANALYZED_SUCCESS').get();
-
-      if (sourceDocsSnapshot.empty) {
-        await projectRef.update({ status: 'SOW_GENERATION_FAILED', errorMessage: 'No successfully analyzed documents found.' });
-        return res.status(400).send({ message: 'No successfully analyzed documents found.' });
-      }
-
-      const allRequirements = [];
-      const allSummaries = [];
-      for (const doc of sourceDocsSnapshot.docs) {
-        const data = doc.data();
-        const analysis = data.analysis || {};
-        if (analysis.requirements) {
-          allRequirements.push(...analysis.requirements.map(r => ({ ...r, source_file: data.originalFilename || 'Unknown' })));
-        }
-        if (analysis.summary) {
-          allSummaries.push({ filename: data.originalFilename || 'Unknown', summary: analysis.summary });
-        }
-      }
-
-      req.log.info({ settings: globalSettings }, 'globalSettings');
-      const vertex_ai = new VertexAI({project: globalSettings.gcp_project_id, location: globalSettings.vertex_ai_location});
-      const generativeModel = vertex_ai.getGenerativeModel({
-        model: globalSettings.sow_generation_model,
-      });
-      req.log.info('generativeModel created');
-
-      const sowPromptDoc = await firestore.collection('prompts').doc(globalSettings.sow_generation_prompt_id).get();
-      if (!sowPromptDoc.exists) {
-        throw new Error(`SOW prompt document '${globalSettings.sow_generation_prompt_id}' not found.`);
-      }
-      const sowPromptTemplate = sowPromptDoc.data().prompt_text;
-
-      const projectDoc = await projectRef.get();
-      const projectName = projectDoc.data().projectName || 'Untitled Project';
-
-      const title = `${globalSettings.sow_title_prefix || 'SOW Draft for'} ${projectName}`;
-      let finalPrompt = sowPromptTemplate.replace('{template_content}', templateContent);
-      finalPrompt = finalPrompt.replace('{aggregated_analysis_json}', JSON.stringify(aggregatedAnalysis, null, 2));
-      finalPrompt = finalPrompt.replace('{project_name_placeholder}', title);
-
-      const generationConfig = {
-        temperature: parseFloat(globalSettings.sow_generation_model_temperature),
-        maxOutputTokens: parseInt(globalSettings.sow_generation_max_tokens)
-      };
-
-      const finalResult = await generativeModel.generateContent({
-        contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
-        generationConfig,
-      });
-      req.log.info({ finalResult }, 'Final result from generative model');
-      const generatedSowText = finalResult.response.candidates[0].content.parts[0].text.trim().replace(/```markdown/g, "").replace(/```/g, "");
-
-      const newSowRef = projectRef.collection('generated_sow').doc();
-      await newSowRef.set({
-        createdAt: FieldValue.serverTimestamp(),
-        templateId: templateId,
-        templateName: templateName,
-        generatedSowText: generatedSowText
-      });
-
-      await projectRef.update({ status: 'SOW_GENERATED' });
-
-      res.status(200).send({ message: 'SOW generated successfully', sowId: newSowRef.id });
-
+      const functionUrl = globalSettings.sow_generation_func_url;
+      const client = await auth.getIdTokenClient(functionUrl);
+      const response = await client.request({ url: functionUrl, method: 'POST', data: req.body });
+      res.status(response.status).send(response.data);
     } catch (error) {
-      req.log.error({ err: error, message: 'Error generating SOW' });
-      const projectId = req.body.projectId;
-      if (projectId) {
-        await firestore.collection('sow_projects').doc(projectId).update({
-          status: 'SOW_GENERATION_FAILED',
-          errorMessage: error.message
-        });
-      }
-      res.status(500).send({ message: 'Could not generate SOW.' });
+      req.log.error({ err: error.response ? error.response.data : error, message: 'Error proxying to sow-generation-func' });
+      res.status(500).send({ message: 'Could not proxy to SOW generation function.' });
     }
   });
 
@@ -534,6 +478,9 @@ app.post('/api/create-google-doc',
 async function startServer() {
   logger.info('--- Initializing SOW-Forge Server ---');
   try {
+    // 0. Initialize Google Cloud Clients
+    await initializeGoogleCloudClients();
+
     // 1. Fetch settings from Firestore
     const settingsDoc = await firestore.collection('settings').doc('global_config').get();
     if (!settingsDoc.exists) {

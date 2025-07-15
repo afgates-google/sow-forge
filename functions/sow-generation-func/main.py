@@ -3,7 +3,13 @@ import os
 import json
 import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig, HarmCategory, HarmBlockThreshold
-from google.cloud import firestore, storage
+import functions_framework
+import os
+import json
+import vertexai
+from vertexai.generative_models import GenerativeModel, GenerationConfig, HarmCategory, HarmBlockThreshold
+from google.cloud import firestore, storage, secretmanager
+from google.auth import credentials
 import logging
 import sys
 
@@ -16,6 +22,21 @@ db = None
 storage_client = None
 global_settings = None
 
+def get_credentials():
+    """Gets credentials from Secret Manager or application default."""
+    if os.getenv('GAE_ENV', '').startswith('standard'):
+        # Production environment
+        creds, _ = default()
+        return creds
+    else:
+        # Local development
+        secret_client = secretmanager.SecretManagerServiceClient()
+        secret_name = f"projects/{os.getenv('GCLOUD_PROJECT')}/secrets/sow-forge-sa-key/versions/latest"
+        response = secret_client.access_secret_version(name=secret_name)
+        secret_payload = response.payload.data.decode('UTF-8')
+        creds_info = json.loads(secret_payload)
+        return credentials.Credentials.from_authorized_user_info(creds_info)
+
 def init_clients_and_settings():
     """Initializes global clients and settings to reuse connections."""
     global db, storage_client, global_settings
@@ -23,13 +44,16 @@ def init_clients_and_settings():
         return
 
     logger.info("--- Initializing clients and loading global_config ---")
-    db = firestore.Client()
-    storage_client = storage.Client()
+    creds = get_credentials()
+    db = firestore.Client(credentials=creds)
+    storage_client = storage.Client(credentials=creds)
+    
     settings_doc = db.collection('settings').document('global_config').get()
     if not settings_doc.exists:
         raise Exception("CRITICAL: Global config 'global_config' not found in Firestore!")
     global_settings = settings_doc.to_dict()
-    vertexai.init(project=global_settings["gcp_project_id"], location=global_settings["vertex_ai_location"])
+    
+    vertexai.init(project=global_settings["gcp_project_id"], location=global_settings["vertex_ai_location"], credentials=creds)
     logger.info("✅ All clients, settings, and Vertex AI initialized successfully.")
 
 @functions_framework.http
@@ -94,10 +118,10 @@ def sow_generation_func(request):
         logger.info("  -> Final prompt assembled.")
         
         safety_settings = {
-            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold[global_settings.get('vertex_ai_safety_threshold', 'BLOCK_ONLY_HIGH')],
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold[global_settings.get('vertex_ai_safety_threshold', 'BLOCK_ONLY_HIGH')],
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold[global_settings.get('vertex_ai_safety_threshold', 'BLOCK_ONLY_HIGH')],
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold[global_settings.get('vertex_ai_safety_threshold', 'BLOCK_ONLY_HIGH')],
         }
 
         config = GenerationConfig(
@@ -151,7 +175,8 @@ def _aggregate_analyses(project_ref):
     return reqs, sums
 
 def _create_meta_summary(model, summaries):
-    prompt = f"Synthesize these individual document summaries into a single, cohesive project overview paragraph:\n\n{json.dumps(summaries, indent=2)}"
+    prompt_template = _get_firestore_prop(db.collection('prompts').document(global_settings['meta_summary_prompt_id']), 'prompt_text')
+    prompt = prompt_template.format(summaries_json=json.dumps(summaries, indent=2))
     return model.generate_content(prompt).text.strip()
 
 def _get_firestore_prop(doc_ref, prop, default=None):

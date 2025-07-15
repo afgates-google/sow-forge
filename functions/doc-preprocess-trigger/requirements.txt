@@ -3,5 +3,6 @@ functions-framework==3.*
 google-cloud-documentai
 google-cloud-storage
 google-cloud-firestore
+google-cloud-secret-manager
 # Pin the non-Google dependency
 PyPDF2==3.0.1

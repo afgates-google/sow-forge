@@ -2,8 +2,15 @@ import functions_framework
 import logging
 import sys
 from googleapiclient.discovery import build
-from google.auth import default
+import functions_framework
+import logging
+import sys
+import os
+import json
+from googleapiclient.discovery import build
+from google.auth import credentials
 from google.cloud import firestore
+from google.cloud import secretmanager
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, stream=sys.stdout,
@@ -14,6 +21,21 @@ db = None
 service = None
 global_settings = None
 
+def get_credentials():
+    """Gets credentials from Secret Manager or application default."""
+    if os.getenv('GAE_ENV', '').startswith('standard'):
+        # Production environment
+        creds, _ = default()
+        return creds
+    else:
+        # Local development
+        secret_client = secretmanager.SecretManagerServiceClient()
+        secret_name = f"projects/{os.getenv('GCLOUD_PROJECT')}/secrets/sow-forge-sa-key/versions/latest"
+        response = secret_client.access_secret_version(name=secret_name)
+        secret_payload = response.payload.data.decode('UTF-8')
+        creds_info = json.loads(secret_payload)
+        return credentials.Credentials.from_authorized_user_info(creds_info)
+
 def init_clients_and_service():
     """Initializes global clients and the Google Docs service object."""
     global db, service, global_settings
@@ -21,7 +43,10 @@ def init_clients_and_service():
         return
 
     logger.info("--- Initializing clients and Google Docs service ---")
-    db = firestore.Client()
+    
+    creds = get_credentials()
+    db = firestore.Client(credentials=creds)
+    
     settings_doc = db.collection('settings').document('global_config').get()
     if not settings_doc.exists:
         raise Exception("CRITICAL: Global config 'global_config' not found in Firestore!")
@@ -29,11 +54,14 @@ def init_clients_and_service():
 
     SCOPES = global_settings.get('google_docs_api_scopes', 'https://www.googleapis.com/auth/documents').split(',')
     DELEGATED_ADMIN_EMAIL = global_settings.get('gsuite_delegated_admin_email')
-    creds, _ = default(scopes=SCOPES)
+    
+    scoped_creds = creds.with_scopes(SCOPES)
     if DELEGATED_ADMIN_EMAIL:
-        creds = creds.with_subject(DELEGATED_ADMIN_EMAIL)
-    service = build('docs', 'v1', credentials=creds)
+        scoped_creds = scoped_creds.with_subject(DELEGATED_ADMIN_EMAIL)
+        
+    service = build('docs', 'v1', credentials=scoped_creds)
     logger.info("✅ Google Docs service initialized and cached successfully.")
+
 
 @functions_framework.http
 def create_google_doc(request):
@@ -63,7 +91,10 @@ def create_google_doc(request):
         
         body = {'title': sow_title, 'body': {'content': [{'paragraph': {'elements': [{'textRun': {'content': sow_text}}]}}]}}
         doc = service.documents().create(body=body).execute()
-        doc_url = f"https://docs.google.com/document/d/{doc['documentId']}/edit"
+        
+        # Use a configurable base URL for the document
+        doc_base_url = global_settings.get('google_docs_base_url', 'https://docs.google.com/document/d/')
+        doc_url = f"{doc_base_url}{doc['documentId']}/edit"
         
         # Update the specific SOW document with the URL
         sow_ref.update({'googleDocUrl': doc_url})

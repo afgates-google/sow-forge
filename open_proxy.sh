@@ -22,4 +22,4 @@ sudo apt-get update
 sudo apt-get install -y google-cloud-cli-cloud-run-prox
 
 # Start the gcloud run services proxy
-gcloud run services proxy sow-forge-backend-server --project=state-of-texas-sow-demo --region=us-central1 --port=8081
+gcloud run services proxy "${BACKEND_SERVICE_NAME:-sow-forge-backend-server}" --project="${PROJECT_ID}" --region="${REGION}" --port=8081

@@ -83,18 +83,8 @@ echo "✔ All services deployed."
 echo
 echo "[4/5] Updating function URLs in Firestore..."
 echo "--------------------------------------------"
-# Ensure python3-venv is installed
-sudo apt-get install -y python3.12-venv
-# Create a temporary virtual environment to avoid system conflicts
-python3 -m venv temp_venv
-source temp_venv/bin/activate
-# Install Python dependencies required by the setup script
-pip install -r functions/sow-generation-func/requirements.txt -q
 # Run the script to update Firestore
 python3 setup_firestore_settings.py
-# Deactivate and remove the virtual environment
-deactivate
-rm -rf temp_venv
 echo "✔ Firestore settings updated with latest function URLs."
 
 
@@ -113,7 +103,7 @@ echo "✔ Backend server restarted."
 echo
 echo "[6/7] Configuring frontend for deployed backend..."
 # ... (This part remains the same) ...
-BACKEND_URL=$(gcloud run services describe sow-forge-backend-server --platform managed --region ${REGION} --format 'value(status.url)')
+BACKEND_URL=$(gcloud run services describe "${BACKEND_SERVICE_NAME:-sow-forge-backend-server}" --platform managed --region "${REGION}" --format 'value(status.url)')
 if [ -z "$BACKEND_URL" ]; then
     echo "!!! ERROR: Could not retrieve deployed backend URL." && exit 1
 fi

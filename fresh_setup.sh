@@ -46,32 +46,14 @@ echo "-> Angular CLI version: $(ng version | grep 'Angular CLI:')"
 
 # --- 4. Install Project Dependencies ---
 echo "[4/5] Installing all project npm packages..."
-# Navigate to the frontend directory to run npm ci
-if [ ! -d "frontend" ]; then
-    echo "ERROR: 'frontend' directory not found. Please run this script from the project root."
-    exit 1
-fi
-cd frontend
-# Use 'npm ci' for a clean, reproducible install from package-lock.json
-npm ci
-echo "-> All frontend dependencies installed."
+npm install
+echo "-> All project dependencies installed."
 
 
-# --- 5. Generate Service Account Key ---
-# This is the final environment-specific step.
-if [ -f "sa-key.json" ]; then
-    echo "[5/5] Service account key 'sa-key.json' already exists. Skipping creation."
-else
-    echo "[5/5] Generating service account key 'sa-key.json'..."
-    # NOTE: You must be authenticated with gcloud for this to work.
-    # Run 'gcloud auth login' if you see any errors here.
-    gcloud iam service-accounts keys create ./sa-key.json \
-        --iam-account=sow-forge-master-sa@state-of-texas-sow-demo.iam.gserviceaccount.com
-    echo "-> Key file created and placed in 'frontend' directory."
-fi
-
-# Final check on key file permissions
-chmod 644 sa-key.json
+# --- 5. Authenticate to Google Cloud ---
+echo "[5/5] Authenticating to Google Cloud..."
+gcloud auth application-default login
+echo "-> Authentication complete."
 
 echo
 echo "--------------------------------------------------------"
@@ -83,14 +65,12 @@ echo "The application requires TWO separate terminals."
 echo
 echo "IN TERMINAL 1 (run the backend server):"
 echo "1. If this is a new terminal, run: nvm use 20"
-echo "2. Navigate to the frontend directory: cd ~/sow-forge/frontend"
-echo "3. Start the Node.js server: node server.js"
+echo "2. Start the Node.js server: npm run start:backend"
 echo
 echo "IN TERMINAL 2 (run the Angular dev server):"
 echo "1. Open a new terminal tab."
 echo "2. Run: nvm use 20"
-echo "3. Navigate to the frontend directory: cd ~/sow-forge/frontend"
-echo "4. Start the Angular server: ng serve"
+echo "3. Start the Angular server: npm run start:frontend"
 echo
 echo "Then, use the Web Preview button on port 4200."
 echo

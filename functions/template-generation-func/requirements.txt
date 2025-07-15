@@ -3,3 +3,4 @@ google-cloud-firestore
 google-cloud-storage
 google-cloud-documentai
 google-cloud-aiplatform
+google-cloud-secret-manager

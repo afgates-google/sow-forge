@@ -1,0 +1,23 @@
+# Dependencies
+/node_modules
+/venv
+/temp_venv
+
+# Build output
+/dist
+/function.zip
+
+# IDE configuration
+.vscode/
+.idea/
+
+# Environment files
+.env
+sa-key.json
+
+# Log files
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db

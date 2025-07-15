@@ -5,8 +5,16 @@ import logging
 import sys
 import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig, HarmCategory, HarmBlockThreshold
-from google.cloud import firestore, storage, documentai
+import functions_framework
+import os
+import json
+import logging
+import sys
+import vertexai
+from vertexai.generative_models import GenerativeModel, GenerationConfig, HarmCategory, HarmBlockThreshold
+from google.cloud import firestore, storage, documentai, secretmanager
 from google.api_core.client_options import ClientOptions
+from google.auth import credentials
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, stream=sys.stdout,
@@ -15,6 +23,21 @@ logger = logging.getLogger(__name__)
 
 db, storage_client, docai_client, global_settings = None, None, None, None
 
+def get_credentials():
+    """Gets credentials from Secret Manager or application default."""
+    if os.getenv('GAE_ENV', '').startswith('standard'):
+        # Production environment
+        creds, _ = default()
+        return creds
+    else:
+        # Local development
+        secret_client = secretmanager.SecretManagerServiceClient()
+        secret_name = f"projects/{os.getenv('GCLOUD_PROJECT')}/secrets/sow-forge-sa-key/versions/latest"
+        response = secret_client.access_secret_version(name=secret_name)
+        secret_payload = response.payload.data.decode('UTF-8')
+        creds_info = json.loads(secret_payload)
+        return credentials.Credentials.from_authorized_user_info(creds_info)
+
 def init_all_clients():
     """Initializes all necessary clients and settings for reuse."""
     global db, storage_client, docai_client, global_settings
@@ -22,14 +45,20 @@ def init_all_clients():
         return
 
     logger.info("--- Initializing all clients and loading global_config ---")
-    db, storage_client = firestore.Client(), storage.Client()
+    creds = get_credentials()
+    db = firestore.Client(credentials=creds)
+    storage_client = storage.Client(credentials=creds)
+    
     settings_doc = db.collection('settings').document('global_config').get()
     if not settings_doc.exists:
         raise Exception("CRITICAL: Global config 'global_config' not found in Firestore!")
     global_settings = settings_doc.to_dict()
-    vertexai.init(project=global_settings["gcp_project_id"], location=global_settings["vertex_ai_location"])
-    opts = ClientOptions(api_endpoint=f"{global_settings['docai_location']}-documentai.googleapis.com")
-    docai_client = documentai.DocumentProcessorServiceClient(client_options=opts)
+    
+    vertexai.init(project=global_settings["gcp_project_id"], location=global_settings["vertex_ai_location"], credentials=creds)
+    
+    docai_base_url = global_settings.get('docai_base_url', 'documentai.googleapis.com')
+    opts = ClientOptions(api_endpoint=f"{global_settings['docai_location']}-{docai_base_url}")
+    docai_client = documentai.DocumentProcessorServiceClient(client_options=opts, credentials=creds)
     logger.info("✅ All services initialized successfully.")
 
 @functions_framework.http
@@ -58,10 +87,10 @@ def template_generation_func(request): # CORRECTED NAME
 
         # 1. Define safety settings
         safety_settings = {
-            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold[global_settings.get('vertex_ai_safety_threshold', 'BLOCK_ONLY_HIGH')],
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold[global_settings.get('vertex_ai_safety_threshold', 'BLOCK_ONLY_HIGH')],
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold[global_settings.get('vertex_ai_safety_threshold', 'BLOCK_ONLY_HIGH')],
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold[global_settings.get('vertex_ai_safety_threshold', 'BLOCK_ONLY_HIGH')],
         }
         
         # 2. Update the GenerationConfig

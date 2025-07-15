@@ -6,8 +6,17 @@ import logging
 import sys
 import base64
 import json
-from google.cloud import firestore, storage, documentai
+import os
+import PyPDF2
+import functions_framework
+import io
+import logging
+import sys
+import base64
+import json
+from google.cloud import firestore, storage, documentai, secretmanager
 from google.api_core.client_options import ClientOptions
+from google.auth import credentials
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, stream=sys.stdout,
@@ -16,6 +25,21 @@ logger = logging.getLogger(__name__)
 
 db, storage_client, docai_client, global_settings = None, None, None, None
 
+def get_credentials():
+    """Gets credentials from Secret Manager or application default."""
+    if os.getenv('GAE_ENV', '').startswith('standard'):
+        # Production environment
+        creds, _ = default()
+        return creds
+    else:
+        # Local development
+        secret_client = secretmanager.SecretManagerServiceClient()
+        secret_name = f"projects/{os.getenv('GCLOUD_PROJECT')}/secrets/sow-forge-sa-key/versions/latest"
+        response = secret_client.access_secret_version(name=secret_name)
+        secret_payload = response.payload.data.decode('UTF-8')
+        creds_info = json.loads(secret_payload)
+        return credentials.Credentials.from_authorized_user_info(creds_info)
+
 def init_clients_and_settings():
     """Initializes global clients and settings to reuse connections."""
     global db, storage_client, docai_client, global_settings
@@ -23,13 +47,18 @@ def init_clients_and_settings():
         return
 
     logger.info("--- Initializing clients and loading global_config ---")
-    db, storage_client = firestore.Client(), storage.Client()
+    creds = get_credentials()
+    db = firestore.Client(credentials=creds)
+    storage_client = storage.Client(credentials=creds)
+    
     settings_doc = db.collection('settings').document('global_config').get()
     if not settings_doc.exists:
         raise Exception("CRITICAL: Global config 'global_config' not found in Firestore!")
     global_settings = settings_doc.to_dict()
-    opts = ClientOptions(api_endpoint=f"{global_settings.get('docai_location', 'us')}-documentai.googleapis.com")
-    docai_client = documentai.DocumentProcessorServiceClient(client_options=opts)
+    
+    docai_base_url = global_settings.get('docai_base_url', 'documentai.googleapis.com')
+    opts = ClientOptions(api_endpoint=f"{global_settings.get('docai_location', 'us')}-{docai_base_url}")
+    docai_client = documentai.DocumentProcessorServiceClient(client_options=opts, credentials=creds)
     logger.info("✅ All clients and settings initialized successfully.")
 
 @functions_framework.cloud_event
@@ -70,7 +99,7 @@ def doc_preprocess_trigger(cloud_event): # CORRECTED NAME
         
         doc_ref.update({"status": "PROCESSING_OCR", "page_count": page_count})
         
-        if page_count <= int(global_settings.get("sync_page_limit", 15)):
+        if page_count <= int(global_settings["doc_ai_sync_page_limit"]):
             logger.info(f"Using SYNC processing for {file_name} ({page_count} pages).")
             request = documentai.ProcessRequest(name=processor_name, raw_document=documentai.RawDocument(content=pdf_bytes, mime_type="application/pdf"))
             result = docai_client.process_document(request=request)

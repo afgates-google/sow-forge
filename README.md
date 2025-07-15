@@ -1,5 +1,32 @@
 # Project Modernization Report
 
+## Local Development Configuration
+
+### Backend Proxy
+
+For local development, the Angular development server uses a proxy to forward API requests to the backend. This is configured in `frontend/proxy.conf.json`. The `target` property in this file should point to the URL of your running backend service.
+
+The default value is set for a common development environment. If you are running the backend locally or in a different environment, you will need to update this URL.
+
+### Service Account Credentials
+
+For local development, the backend server and Cloud Functions require a service account key to authenticate with Google Cloud services. This key is stored securely in Google Cloud Secret Manager.
+
+To set up the secret:
+
+1.  **Ensure you are authenticated with gcloud:**
+    ```bash
+    gcloud auth login
+    gcloud auth application-default login
+    ```
+2.  **Run the `store_secret.sh` script:**
+    ```bash
+    chmod +x store_secret.sh
+    ./store_secret.sh
+    ```
+This script will create a new service account key, store it in Secret Manager, and then delete the local key file.
+
+---
 # Table of Contents
 
 1. [Report Metadata](#report-metadata)
