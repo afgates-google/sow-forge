@@ -1,8 +1,14 @@
 import functions_framework
-import traceback
+import logging
+import sys
 from googleapiclient.discovery import build
 from google.auth import default
 from google.cloud import firestore
+
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO, stream=sys.stdout,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 db = None
 service = None
@@ -14,7 +20,7 @@ def init_clients_and_service():
     if all((db, service, global_settings)):
         return
 
-    print("--- Initializing clients and Google Docs service ---")
+    logger.info("--- Initializing clients and Google Docs service ---")
     db = firestore.Client()
     settings_doc = db.collection('settings').document('global_config').get()
     if not settings_doc.exists:
@@ -27,14 +33,14 @@ def init_clients_and_service():
     if DELEGATED_ADMIN_EMAIL:
         creds = creds.with_subject(DELEGATED_ADMIN_EMAIL)
     service = build('docs', 'v1', credentials=creds)
-    print("✅ Google Docs service initialized and cached successfully.")
+    logger.info("✅ Google Docs service initialized and cached successfully.")
 
 @functions_framework.http
 def create_google_doc(request):
     try:
         init_clients_and_service()
     except Exception as e:
-        print(f"!!! CLIENT INITIALIZATION FAILED: {e}")
+        logger.critical(f"!!! CLIENT INITIALIZATION FAILED: {e}", exc_info=True)
         return "Could not initialize backend services.", 500
     try:
         request_json = request.get_json(silent=True)
@@ -42,9 +48,10 @@ def create_google_doc(request):
         sow_id = request_json.get('sowId') # <-- NEW: Get the specific SOW ID
 
         if not all([project_id, sow_id]):
+            logger.error("Missing 'projectId' or 'sowId' in request body")
             return "Missing 'projectId' or 'sowId' in request body", 400
 
-        print(f"--- Create Google Doc for SOW: {sow_id} in project: {project_id} ---")
+        logger.info(f"--- Create Google Doc for SOW: {sow_id} in project: {project_id} ---")
 
         # Reference the specific SOW document
         sow_ref = db.collection('sow_projects').document(project_id).collection('generated_sow').document(sow_id)
@@ -61,9 +68,9 @@ def create_google_doc(request):
         # Update the specific SOW document with the URL
         sow_ref.update({'googleDocUrl': doc_url})
 
-        print(f"Successfully created Google Doc: {doc_url}")
+        logger.info(f"Successfully created Google Doc: {doc_url}")
         return {'doc_url': doc_url, 'sowId': sow_id}, 200
         
     except Exception as e:
-        print(f"!!! CRITICAL ERROR during Google Doc creation: {e}\n{traceback.format_exc()}")
+        logger.critical("!!! CRITICAL ERROR during Google Doc creation", exc_info=True)
         return "An error occurred while creating the Google Doc.", 500

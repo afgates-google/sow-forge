@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "state-of-texas-sow-demo",
+  "private_key_id": "1e968e85d245728e90907ed4e309cebbbdd6e5dd",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC6vOhrwobtR7B3\nDHmROY03YcpMYER7jK5iZkEN33YlUiMNGrkPG9eISoT5BlbWhkOnhIuEVOZxianS\nEb2utJ8U8grdHZkBJBSiZDzp02NWuRtXgUhY/cbGubFVmnkqnHmYFTr2rbWxtTO0\nOYpggeMckmsrdKJqz6hARgMA0d69PFbCmcMYEIJES/jRmAlRGnEWUP8VB7yDKz1C\ngn7wZuxDq+xW4BUnucUC9Aja8tmf+Wtj7n73Z6QBbXQf0yRwNgo1x/wOcmrvIIoW\nwTvGe6hYKczPSREwF3E7zu1K7CGSSrCQdcpa9M/2k+3Hkrmad3qpq2FxiSWtzSwb\n+aZG5GCVAgMBAAECggEABVvxjFIqCXpCuWVCweULGqP0Uyp6HKpGFkMv/8QXgcJb\nM3+Tqw2Aqy5++snwnmR+YZA0vtNURRLkgZ0KZWP/+BvALbtb45lTpvDF12y+ekPY\nDIlZzbAEJI+PZCZe7tb3Hbhnl6JsR1GCI9x4468mmPB8zI5Nhk+NA8Henoc8uLqL\ne038F3mJ9Ht5kZyUCQNgRsaqW+Xk6rPGBZdZ0TMvgKPHWXRhh8N8/XKDcxpevmr0\nFVUG18Q0c79kR3EckdYZD3VUL6uvguKNB7ERJGRQvThTnMHraCbPZw0uPPcScPmC\n0eZTMCEKgX/FvZeJq3PntABpLqSwQ6q26f9v+DRIUQKBgQDvE4879U4RIfamnrAZ\nKyyM4JPi36yUptr5GltOwoQUIji75UTq2zaZDoL3VL58LkAuZFVoMNuj+8Dz6egd\ntOxNleIQ2tmuI6ne+OnHEoVRaGBceW+OEc/arYaeB6q0nKWzcHYGXZuO4Bf5Nrep\nr1q2lj1MPAn53vTYkCy2Kc82SQKBgQDH9OSLbcLQf7bWPIEh6BRTZBePPD2Ttuzr\nv8v7/zM2V6yVbaCoNBnPkVSc4ojGJEAOEdgsvXdlIrWMakRnTwMzWaKXvlr8pLWK\nQiWmo2KkfeY55xMWRByAgIv2UViZh3hTyzSh4LBkPnw9hDpH4i/ePo+zHJszHAt+\nHp2CEnon7QKBgFDDH8DWdj/NZGAW/VATSKJyfyLGAqvYzeIWqD+r8ChJAzdeFPDt\nir0brNxWcV7L1PyXAk8HKjt0IVOEcdgPNUBkYJDnDWAJRio/leGc/RJqGxtCHpA0\nri2mLvKVjnIi9MrwM76kwpb6Vr7mYBbfWNqTWDO3mHsjeTzrP19uMkSZAoGBAJsP\nd+P//CE/yQOd6+3lUU3Rwstaxc20/0ladM84efhcSQOf/gQyUwm6A8mdir9NATdn\n8yHO07XkErGO/vi2Nx8tFX9jKJ/fAsDyxsvQzAAPeefRH+YWb5vfE6qyLmjwuwkP\n/gLCgUdbhXEXBzMTXleUYE9fkaMyzl7BUxe5SG2JAoGBAJcR6nNnzfnLqtnMd4DT\n/bmi9d0mwhhF72w05HQOFfCxrxCY50o7UhXEl1Gx+GReqCCCfnTdl+pqePkZAKR5\ngEOpm6abQB076CAJiLbpPrpoDhwLDUcE6msLFKMcdXR1/bat3WlHP+TLjKHkOe48\nGCFXovbDPokPGWvQgWntV5Kl\n-----END PRIVATE KEY-----\n",
+  "client_email": "sow-forge-master-sa@state-of-texas-sow-demo.iam.gserviceaccount.com",
+  "client_id": "117862990716582667456",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/sow-forge-master-sa%40state-of-texas-sow-demo.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

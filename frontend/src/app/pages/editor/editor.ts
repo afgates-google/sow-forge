@@ -5,6 +5,7 @@ import { ApiService } from '../../services/api.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MarkdownModule } from 'ngx-markdown';
+import { LoggingService } from '../../services/logging.service';
 
 @Component({
   selector: 'app-editor',
@@ -28,7 +29,8 @@ export class EditorComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private logger: LoggingService
   ) {}
 
   ngOnInit(): void {
@@ -43,7 +45,7 @@ export class EditorComponent implements OnInit {
 
     this.apiService.getGeneratedSowDetails(projectId, sowId).subscribe({
       next: (data) => {
-        console.log("Received SOW details from API:", data); // For debugging
+        this.logger.log("Received SOW details from API:", data); // For debugging
         this.project = data.project;
         this.sow = data.sow;
         this.editableSowText = data.sow?.generatedSowText || '# SOW Content Not Found';
@@ -51,7 +53,7 @@ export class EditorComponent implements OnInit {
       },
       error: (err: any) => {
         // Log the full error to the console for easier debugging
-        console.error("API Error fetching SOW details:", err);
+        this.logger.error("API Error fetching SOW details:", err);
         this.statusMessage = `Error: Could not load SOW. ${err.error?.message || err.message}`;
       }
     });
@@ -80,7 +82,7 @@ export class EditorComponent implements OnInit {
         },
         error: (err: any) => {
             this.statusMessage = "Failed to create Google Doc.";
-            console.error(err);
+            this.logger.error(err);
         },
         complete: () => {
             this.isCreatingGDoc = false;

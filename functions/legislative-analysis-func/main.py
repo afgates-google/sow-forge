@@ -4,7 +4,13 @@ import json
 import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig, HarmCategory, HarmBlockThreshold
 from google.cloud import storage, firestore
-import traceback
+import logging
+import sys
+
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO, stream=sys.stdout,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 db = None
 storage_client = None
@@ -16,7 +22,7 @@ def init_clients_and_settings():
     if all((db, storage_client, global_settings)):
         return
 
-    print("--- Initializing clients and loading global_config ---")
+    logger.info("--- Initializing clients and loading global_config ---")
     db = firestore.Client()
     storage_client = storage.Client()
     settings_doc = db.collection('settings').document('global_config').get()
@@ -24,7 +30,7 @@ def init_clients_and_settings():
         raise Exception("CRITICAL: Global config 'global_config' not found in Firestore!")
     global_settings = settings_doc.to_dict()
     vertexai.init(project=global_settings["gcp_project_id"], location=global_settings["vertex_ai_location"])
-    print("✅ All clients and settings initialized successfully.")
+    logger.info("✅ All clients and settings initialized successfully.")
 
 @functions_framework.cloud_event
 def legislative_analysis_func(cloud_event): # CORRECTED NAME
@@ -32,7 +38,7 @@ def legislative_analysis_func(cloud_event): # CORRECTED NAME
     try:
         init_clients_and_settings()
     except Exception as e:
-        print(f"!!! CLIENT INITIALIZATION FAILED: {e}")
+        logger.critical(f"!!! CLIENT INITIALIZATION FAILED: {e}", exc_info=True)
         return
 
     doc_ref = None
@@ -52,7 +58,7 @@ def legislative_analysis_func(cloud_event): # CORRECTED NAME
         
         prompt_mapping = global_settings.get('prompt_mapping', {})
         prompt_id = prompt_mapping.get(doc_category, global_settings.get('default_analysis_prompt_id', 'general_analysis_prompt'))
-        print(f"Document category is '{doc_category}'. Using prompt ID: '{prompt_id}'.")
+        logger.info(f"Document category is '{doc_category}'. Using prompt ID: '{prompt_id}'.")
 
         prompt_ref = db.collection('prompts').document(prompt_id)
         prompt_doc = prompt_ref.get()
@@ -99,11 +105,10 @@ def legislative_analysis_func(cloud_event): # CORRECTED NAME
             "analysis": analysis_result,
             "analyzed_at": firestore.SERVER_TIMESTAMP
         })
-        print(f"SUCCESS: Saved final analysis for doc '{doc_id}' to Firestore.")
+        logger.info(f"SUCCESS: Saved final analysis for doc '{doc_id}' to Firestore.")
 
     except Exception as e:
-        tb_str = traceback.format_exc()
-        error_message = f"!!! CRITICAL ERROR in analysis: {str(e)}"
-        print(error_message, tb_str)
+        error_message = f"!!! CRITICAL ERROR in analysis for doc '{file_name}'"
+        logger.critical(error_message, exc_info=True)
         if doc_ref:
-            doc_ref.update({"status": "ANALYSIS_FAILED", "error_message": error_message, "error_traceback": tb_str})
+            doc_ref.update({"status": "ANALYSIS_FAILED", "error_message": str(e), "error_traceback": logging.traceback.format_exc()})

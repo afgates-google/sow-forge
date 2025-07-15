@@ -1,4 +1,3 @@
-console.log('server.js loaded');
 // The official way to detect if running in a Google Cloud environment
 // is to check for the K_SERVICE environment variable, which is always set by Cloud Run.
 const IS_PRODUCTION = process.env.K_SERVICE;
@@ -9,40 +8,43 @@ if (!IS_PRODUCTION) {
 }
 
 const express = require('express');
+const pino = require('pino');
+const pinoHttp = require('pino-http');
 const { Storage } = require('@google-cloud/storage');
 const { Firestore, FieldValue } = require('@google-cloud/firestore');
 const { PubSub } = require('@google-cloud/pubsub');
 const { GoogleAuth } = require('google-auth-library');
 const { VertexAI } = require('@google-cloud/vertexai');
+const { body, validationResult } = require('express-validator');
 
 const app = express();
 const port = process.env.PORT || 8080;
 
-// --- 1. INITIALIZE GCLOUD CLIENTS ---
-console.log("Initializing Google Cloud clients...");
+// --- 1. LOGGER SETUP ---
+const logger = pino({
+  level: IS_PRODUCTION ? 'info' : 'debug',
+  // In production, Google Cloud Logging will automatically parse JSON logs.
+  // For local development, pretty-print the logs for readability.
+  transport: IS_PRODUCTION ? undefined : { target: 'pino-pretty' },
+});
+app.use(pinoHttp({ logger }));
+
+
+// --- 2. INITIALIZE GCLOUD CLIENTS ---
+logger.info("Initializing Google Cloud clients...");
 let firestore, storage, auth, pubsub;
 try {
-  if (IS_PRODUCTION) {
-    firestore = new Firestore();
-  } else {
-    // For local development, connect to the Firestore emulator
-    firestore = new Firestore({
-      host: "localhost:8081", // Default emulator host and port
-      projectId: "demo-sow-forge", // Use a mock project ID for the emulator
-      ssl: false,
-    });
-    console.log("DEV MODE: Connected to Firestore Emulator");
-  }
+  firestore = new Firestore();
   storage = new Storage();
   auth = new GoogleAuth();
   pubsub = new PubSub();
-  console.log("✅ Google Cloud clients initialized successfully.");
+  logger.info("✅ Google Cloud clients initialized successfully.");
 } catch (error) {
-  console.error('!!! CRITICAL: FAILED TO INITIALIZE GCLOUD CLIENTS !!!', error);
+  logger.fatal('!!! CRITICAL: FAILED TO INITIALIZE GCLOUD CLIENTS !!!', error);
   process.exit(1);
 }
 
-// --- 2. MIDDLEWARE & SETTINGS PLACEHOLDER ---
+// --- 3. MIDDLEWARE & SETTINGS PLACEHOLDER ---
 let globalSettings;
 app.use(express.json());
 
@@ -63,7 +65,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 
-// --- 3. ALL API ROUTES ---
+// --- 4. ALL API ROUTES ---
 
 // Helper function to safely convert Firestore timestamps
 const convertTimestamps = (data) => {
@@ -101,7 +103,7 @@ app.post('/api/projects',
       }));
       res.status(201).send({ projectId: projectRef.id, uploadInfo });
     } catch (error) {
-      console.error('Error creating new SOW project:', error);
+      req.log.error({ err: error, message: 'Error creating new SOW project' });
       res.status(500).send({ message: 'Could not create SOW project.' });
     }
   });
@@ -112,7 +114,7 @@ app.get('/api/projects', async (req, res) => {
     const projects = snapshot.docs.map(doc => convertTimestamps({ id: doc.id, ...doc.data() }));
     res.status(200).send(projects);
   } catch (error) {
-    console.error('Error fetching SOW projects:', error);
+    req.log.error({ err: error, message: 'Error fetching SOW projects' });
     res.status(500).send({ message: 'Could not fetch SOW projects.' });
   }
 });
@@ -134,7 +136,7 @@ app.get('/api/projects/:projectId', async (req, res) => {
     const generatedSows = generatedSowsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.status(200).send({ ...projectDoc.data(), id: projectDoc.id, sourceDocuments, generatedSows });
   } catch (error) {
-    console.error(`Error fetching project details for ${req.params.projectId}:`, error);
+    req.log.error({ err: error, projectId: req.params.projectId, message: 'Error fetching project details' });
     res.status(500).send({ message: 'Could not fetch project details.' });
   }
 });
@@ -162,7 +164,7 @@ app.put('/api/projects/:projectId',
       await docRef.update({ ...req.body, lastUpdatedAt: FieldValue.serverTimestamp() });
       res.status(200).send({ message: 'Project updated successfully.' });
     } catch (error) {
-      console.error(`Error updating project ${req.params.projectId}:`, error);
+      req.log.error({ err: error, projectId: req.params.projectId, message: 'Error updating project' });
       res.status(500).send({ message: 'Could not update project.' });
     }
   });
@@ -174,7 +176,7 @@ app.get('/api/projects/:projectId/documents/:docId', async (req, res) => {
     if (!doc.exists) return res.status(404).json({ message: 'Source document not found.' });
     res.status(200).json({ id: doc.id, ...doc.data() });
   } catch (error) {
-    console.error(`Error fetching source document ${req.params.docId}:`, error);
+    req.log.error({ err: error, docId: req.params.docId, message: 'Error fetching source document' });
     res.status(500).json({ message: 'Could not fetch source document.' });
   }
 });
@@ -194,7 +196,7 @@ app.post('/api/projects/:projectId/source_documents/:docId/regenerate', async (r
     await pubsub.topic(topicName).publishMessage({ data: dataBuffer });
     res.status(200).send({ message: 'Re-analysis triggered successfully.' });
   } catch (error) {
-    console.error('Error triggering re-analysis:', error);
+    req.log.error({ err: error, message: 'Error triggering re-analysis' });
     res.status(500).send({ message: 'Could not trigger re-analysis.' });
   }
 });
@@ -207,7 +209,7 @@ app.get('/api/projects/:projectId/sows/:sowId', async (req, res) => {
     if (!projectDoc.exists || !sowDoc.exists) return res.status(404).json({ message: 'Project or SOW not found.' });
     res.status(200).json({ project: { id: projectDoc.id, name: projectDoc.data().projectName }, sow: { id: sowDoc.id, ...sowDoc.data() } });
   } catch (error) {
-    console.error(`Error fetching SOW ${req.params.sowId}:`, error);
+    req.log.error({ err: error, sowId: req.params.sowId, message: 'Error fetching SOW' });
     res.status(500).json({ message: 'Could not fetch SOW details.' });
   }
 });
@@ -234,7 +236,7 @@ app.put('/api/projects/:projectId/sows/:sowId',
       await sowRef.update(req.body);
       res.status(200).json({ message: 'SOW updated successfully.' });
     } catch (error) {
-      console.error(`Error updating SOW ${req.params.sowId}:`, error);
+      req.log.error({ err: error, sowId: req.params.sowId, message: 'Error updating SOW' });
       res.status(500).json({ message: 'Could not update SOW.' });
     }
   });
@@ -242,7 +244,7 @@ app.put('/api/projects/:projectId/sows/:sowId',
 app.delete('/api/projects/:projectId', async (req, res) => {
   const { projectId } = req.params;
   try {
-      console.log(`--- DELETE request for project: ${projectId} ---`);
+      req.log.info(`--- DELETE request for project: ${projectId} ---`);
 
       // A full implementation should also delete all sub-collections and GCS files.
       // For now, we'll just delete the project document itself.
@@ -257,11 +259,11 @@ app.delete('/api/projects/:projectId', async (req, res) => {
       */
 
       await projectRef.delete();
-      console.log(`Successfully deleted project document ${projectId}`);
+      req.log.info(`Successfully deleted project document ${projectId}`);
       res.status(200).send({ message: 'Project deleted successfully.' });
 
   } catch (error) {
-      console.error(`!!! Error deleting project ${projectId}:`, error);
+      req.log.error({ err: error, projectId, message: 'Error deleting project' });
       res.status(500).send({ message: 'Could not delete project.' });
   }
 });
@@ -272,7 +274,7 @@ app.get('/api/templates', async (req, res) => {
     const snapshot = await firestore.collection('templates').orderBy('name').get();
     res.status(200).send(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
   } catch (error) {
-    console.error('Error fetching templates:', error);
+    req.log.error({ err: error, message: 'Error fetching templates' });
     res.status(500).send({ message: 'Could not fetch templates.' });
   }
 });
@@ -284,7 +286,7 @@ app.get('/api/templates/:templateId', async (req, res) => {
     const [markdownContent] = await storage.bucket(globalSettings.gcs_templates_bucket).file(doc.data().gcs_path).download();
     res.status(200).json({ metadata: { id: doc.id, ...doc.data() }, markdownContent: markdownContent.toString('utf8') });
   } catch (error) {
-    console.error(`Error fetching template content for ${req.params.templateId}:`, error);
+    req.log.error({ err: error, templateId: req.params.templateId, message: 'Error fetching template content' });
     res.status(500).json({ message: 'Could not fetch template content.' });
   }
 });
@@ -322,7 +324,7 @@ app.put('/api/templates/:templateId',
         }
         res.status(200).json({ message: 'Template updated successfully.' });
     } catch (error) {
-        console.error(`Error updating template ${req.params.templateId}:`, error);
+        req.log.error({ err: error, templateId: req.params.templateId, message: 'Error updating template' });
         res.status(500).json({ message: 'Could not update template.' });
     }
   });
@@ -333,7 +335,7 @@ app.get('/api/prompts', async (req, res) => {
     const snapshot = await firestore.collection('prompts').get();
     res.status(200).send(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
   } catch (error) {
-    console.error('Error fetching prompts:', error);
+    req.log.error({ err: error, message: 'Error fetching prompts' });
     res.status(500).send({ message: 'Could not fetch prompts.' });
   }
 });
@@ -344,7 +346,7 @@ app.get('/api/prompts/:promptId', async (req, res) => {
     if (!doc.exists) return res.status(404).send({ message: 'Prompt not found.' });
     res.status(200).json({ id: doc.id, ...doc.data() });
   } catch (error) {
-    console.error(`Error fetching prompt ${req.params.promptId}:`, error);
+    req.log.error({ err: error, promptId: req.params.promptId, message: 'Error fetching prompt' });
     res.status(500).json({ message: 'Could not fetch prompt.' });
   }
 });
@@ -370,7 +372,7 @@ app.put('/api/prompts/:promptId',
       await firestore.collection('prompts').doc(req.params.promptId).update(req.body);
       res.status(200).send({ message: 'Prompt updated successfully.' });
     } catch (error) {
-      console.error(`Error updating prompt ${req.params.promptId}:`, error);
+      req.log.error({ err: error, promptId: req.params.promptId, message: 'Error updating prompt' });
       res.status(500).send({ message: 'Could not update prompt.' });
     }
   });
@@ -382,7 +384,7 @@ app.get('/api/settings', async (req, res) => {
     if (!doc.exists) return res.status(404).json({ message: 'Global config not found.' });
     res.status(200).json(doc.data());
   } catch (error) {
-    console.error('Error fetching settings:', error);
+    req.log.error({ err: error, message: 'Error fetching settings' });
     res.status(500).json({ message: 'Could not fetch settings.' });
   }
 });
@@ -407,7 +409,7 @@ app.put('/api/settings',
       await firestore.collection('settings').doc('global_config').set(req.body, { merge: true });
       res.status(200).json({ message: 'Settings updated successfully.' });
     } catch (error) {
-      console.error('Error updating settings:', error);
+      req.log.error({ err: error, message: 'Error updating settings' });
       res.status(500).json({ message: 'Could not update settings.' });
     }
   });
@@ -422,7 +424,7 @@ app.post('/api/generate-sow',
       return res.status(400).json({ errors: errors.array() });
     }
     try {
-      console.log('generate-sow called');
+      req.log.info({ body: req.body }, 'generate-sow called');
       const { projectId, templateId } = req.body;
 
       if (!projectId || !templateId) {
@@ -450,12 +452,12 @@ app.post('/api/generate-sow',
         }
       }
 
-      console.log('globalSettings:', globalSettings);
+      req.log.info({ settings: globalSettings }, 'globalSettings');
       const vertex_ai = new VertexAI({project: globalSettings.gcp_project_id, location: globalSettings.vertex_ai_location});
       const generativeModel = vertex_ai.getGenerativeModel({
         model: globalSettings.sow_generation_model,
       });
-      console.log('generativeModel created');
+      req.log.info('generativeModel created');
 
       const sowPromptDoc = await firestore.collection('prompts').doc(globalSettings.sow_generation_prompt_id).get();
       if (!sowPromptDoc.exists) {
@@ -480,7 +482,7 @@ app.post('/api/generate-sow',
         contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
         generationConfig,
       });
-      console.log(JSON.stringify(finalResult, null, 2));
+      req.log.info({ finalResult }, 'Final result from generative model');
       const generatedSowText = finalResult.response.candidates[0].content.parts[0].text.trim().replace(/```markdown/g, "").replace(/```/g, "");
 
       const newSowRef = projectRef.collection('generated_sow').doc();
@@ -496,7 +498,7 @@ app.post('/api/generate-sow',
       res.status(200).send({ message: 'SOW generated successfully', sowId: newSowRef.id });
 
     } catch (error) {
-      console.error('Error generating SOW:', error);
+      req.log.error({ err: error, message: 'Error generating SOW' });
       const projectId = req.body.projectId;
       if (projectId) {
         await firestore.collection('sow_projects').doc(projectId).update({
@@ -521,16 +523,16 @@ app.post('/api/create-google-doc',
       const response = await client.request({ url: functionUrl, method: 'POST', data: req.body });
       res.status(response.status).send(response.data);
     } catch (error) {
-      console.error('Error proxying to create-google-doc-func:', error.response ? error.response.data : error);
+      req.log.error({ err: error.response ? error.response.data : error, message: 'Error proxying to create-google-doc-func' });
       res.status(500).send({ message: 'Could not proxy to Google Doc creation function.' });
     }
   });
 
 // ... other proxy routes like generate-template would go here ...
 
-// --- 4. SERVER STARTUP LOGIC ---
+// --- 5. SERVER STARTUP LOGIC ---
 async function startServer() {
-  console.log('--- Initializing SOW-Forge Server ---');
+  logger.info('--- Initializing SOW-Forge Server ---');
   try {
     // 1. Fetch settings from Firestore
     const settingsDoc = await firestore.collection('settings').doc('global_config').get();
@@ -555,15 +557,15 @@ async function startServer() {
       throw new Error(`CRITICAL: The following required settings are missing from 'settings/global_config': ${missingSettings.join(', ')}`);
     }
     
-    console.log('✅ Global settings loaded and validated successfully.');
+    logger.info('✅ Global settings loaded and validated successfully.');
 
     // 3. Start the server
     app.listen(port, () => {
-      console.log(`🚀 Server listening on port ${port}. SOW-Forge is ready!`);
+      logger.info(`🚀 Server listening on port ${port}. SOW-Forge is ready!`);
     });
 
   } catch (error) {
-    console.error('!!!    SERVER FAILED TO STARTUP         !!!', error);
+    logger.fatal({ err: error }, '!!!    SERVER FAILED TO STARTUP         !!!');
     process.exit(1);
   }
 }

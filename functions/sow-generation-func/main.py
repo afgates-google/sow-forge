@@ -4,7 +4,13 @@ import json
 import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig, HarmCategory, HarmBlockThreshold
 from google.cloud import firestore, storage
-import traceback
+import logging
+import sys
+
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO, stream=sys.stdout,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 db = None
 storage_client = None
@@ -16,7 +22,7 @@ def init_clients_and_settings():
     if all((db, storage_client, global_settings)):
         return
 
-    print("--- Initializing clients and loading global_config ---")
+    logger.info("--- Initializing clients and loading global_config ---")
     db = firestore.Client()
     storage_client = storage.Client()
     settings_doc = db.collection('settings').document('global_config').get()
@@ -24,7 +30,7 @@ def init_clients_and_settings():
         raise Exception("CRITICAL: Global config 'global_config' not found in Firestore!")
     global_settings = settings_doc.to_dict()
     vertexai.init(project=global_settings["gcp_project_id"], location=global_settings["vertex_ai_location"])
-    print("✅ All clients, settings, and Vertex AI initialized successfully.")
+    logger.info("✅ All clients, settings, and Vertex AI initialized successfully.")
 
 @functions_framework.http
 def sow_generation_func(request):
@@ -34,7 +40,7 @@ def sow_generation_func(request):
     try:
         init_clients_and_settings()
     except Exception as e:
-        print(f"!!! CLIENT INITIALIZATION FAILED: {e}")
+        logger.critical(f"!!! CLIENT INITIALIZATION FAILED: {e}", exc_info=True)
         return "Could not initialize backend services.", 500
 
     project_ref = None
@@ -44,27 +50,29 @@ def sow_generation_func(request):
         template_id = request_json.get('templateId')
 
         if not all([project_id, template_id]):
+            logger.error("Missing 'projectId' or 'templateId' in request body")
             return "Missing 'projectId' or 'templateId' in request body", 400
         
-        print(f"--- SOW Generation for project: {project_id}, template: {template_id} ---")
+        logger.info(f"--- SOW Generation for project: {project_id}, template: {template_id} ---")
         project_ref = db.collection('sow_projects').document(project_id)
 
-        print("Step 1: Aggregating analyses...")
+        logger.info("Step 1: Aggregating analyses...")
         all_requirements, all_summaries = _aggregate_analyses(project_ref)
         if not all_summaries:
             project_ref.update({'status': 'SOW_GENERATION_FAILED', 'error_message': 'No successfully analyzed documents found.'})
+            logger.warning(f"No successfully analyzed documents found for project {project_id}.")
             return "No successfully analyzed documents found.", 400
-        print(f"  -> Found {len(all_requirements)} requirements and {len(all_summaries)} summaries.")
+        logger.info(f"  -> Found {len(all_requirements)} requirements and {len(all_summaries)} summaries.")
 
-        print("Step 2: Creating meta summary...")
+        logger.info("Step 2: Creating meta summary...")
         model = GenerativeModel(global_settings['sow_generation_model'])
         aggregated_analysis = {
             "project_overview": _create_meta_summary(model, all_summaries),
             "all_requirements": all_requirements
         }
-        print("  -> Meta summary created.")
+        logger.info("  -> Meta summary created.")
 
-        print(f"Step 3: Fetching template '{template_id}'...")
+        logger.info(f"Step 3: Fetching template '{template_id}'...")
         template_doc_ref = db.collection('templates').document(template_id)
         template_doc = template_doc_ref.get()
         if not template_doc.exists:
@@ -77,13 +85,13 @@ def sow_generation_func(request):
             raise ValueError(f"Template '{template_id}' is missing the 'gcs_path' field in Firestore.")
         
         template_content = _get_gcs_content(global_settings['gcs_templates_bucket'], template_gcs_path)
-        print(f"  -> Template '{template_name}' fetched successfully.")
+        logger.info(f"  -> Template '{template_name}' fetched successfully.")
 
-        print("Step 4: Assembling final prompt...")
+        logger.info("Step 4: Assembling final prompt...")
         sow_prompt_template = _get_firestore_prop(db.collection('prompts').document(global_settings['sow_generation_prompt_id']), 'prompt_text')
         project_name = _get_firestore_prop(project_ref, 'projectName', 'Untitled Project')
         final_prompt = _assemble_final_prompt(sow_prompt_template, template_content, aggregated_analysis, project_name)
-        print("  -> Final prompt assembled.")
+        logger.info("  -> Final prompt assembled.")
         
         safety_settings = {
             HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
@@ -97,7 +105,7 @@ def sow_generation_func(request):
             max_output_tokens=int(global_settings['sow_generation_max_tokens'])
         )
 
-        print("Step 5: Sending final merge prompt to Vertex AI...")
+        logger.info("Step 5: Sending final merge prompt to Vertex AI...")
         response = model.generate_content(
             final_prompt,
             generation_config=config,
@@ -108,9 +116,9 @@ def sow_generation_func(request):
             raise ValueError("The model returned an empty response, likely due to safety filters or token limits.")
 
         generated_sow_text = response.text.strip().replace("```markdown", "").replace("```", "")
-        print("  -> Received final merged SOW from Vertex AI.")
+        logger.info("  -> Received final merged SOW from Vertex AI.")
 
-        print("Step 6: Saving new SOW document to Firestore...")
+        logger.info("Step 6: Saving new SOW document to Firestore...")
         new_sow_ref = project_ref.collection('generated_sow').document()
         new_sow_ref.set({
             'createdAt': firestore.SERVER_TIMESTAMP,
@@ -119,16 +127,15 @@ def sow_generation_func(request):
             'generatedSowText': generated_sow_text
         })
         project_ref.update({'status': 'SOW_GENERATED'})
-        print(f"  -> SUCCESS: Saved new SOW with ID '{new_sow_ref.id}' to project '{project_id}'.")
+        logger.info(f"  -> SUCCESS: Saved new SOW with ID '{new_sow_ref.id}' to project '{project_id}'.")
         
         return {'message': 'SOW generated successfully', 'sowId': new_sow_ref.id}, 200
 
     except Exception as e:
-        tb_str = traceback.format_exc()
-        error_message = f"!!! CRITICAL ERROR during SOW generation: {e}\n{tb_str}"
-        print(error_message)
+        error_message = f"!!! CRITICAL ERROR during SOW generation for project {project_id}"
+        logger.critical(error_message, exc_info=True)
         if project_ref:
-            project_ref.update({'status': 'SOW_GENERATION_FAILED', 'error_message': error_message})
+            project_ref.update({'status': 'SOW_GENERATION_FAILED', 'error_message': str(e)})
         return "An error occurred during SOW generation.", 500
 
 def _aggregate_analyses(project_ref):

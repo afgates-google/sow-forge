@@ -4,6 +4,7 @@ import { ApiService } from '../../services/api.service';
 import { Subscription, timer, switchMap, takeWhile } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LoggingService } from '../../services/logging.service';
 
 @Component({
   selector: 'app-project-status',
@@ -48,7 +49,8 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private logger: LoggingService
   ) {}
 
   ngOnInit(): void {
@@ -71,13 +73,13 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (data) => {
-          console.log('Successfully fetched project data:', data);
+          this.logger.log('Successfully fetched project data:', data);
           this.project = data;
           this.isLoading = false; // Data has loaded
           this.checkAnalysisStatus();
         },
         error: (err) => {
-          console.error('ERROR fetching project details:', err);
+          this.logger.error('ERROR fetching project details:', err);
           this.errorMessage = "Could not fetch project details.";
           this.isLoading = false;
           this.pollingSubscription?.unsubscribe();
@@ -131,7 +133,7 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
         // Use the error message from the backend if available
         const errorMessage = err.error?.message || 'SOW Generation Failed.';
         alert(errorMessage);
-        console.error(err);
+        this.logger.error(err);
       }
     });
   }
@@ -186,7 +188,7 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
       doc.status = 'RE_ANALYZING'; // Optimistic UI update
       this.apiService.regenerateAnalysis(this.projectId, doc.id).subscribe({
         next: () => {
-          console.log(`Regeneration successfully triggered for doc ${doc.id}`);
+          this.logger.log(`Regeneration successfully triggered for doc ${doc.id}`);
           // Re-start polling if it had stopped
           this.isAnalysisComplete = false;
           if (!this.pollingSubscription || this.pollingSubscription.closed) {
@@ -194,7 +196,7 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
           }
         },
         error: (err) => {
-          console.error('Failed to trigger regeneration', err);
+          this.logger.error('Failed to trigger regeneration', err);
           alert('Could not trigger re-analysis.');
           this.loadProjectDetails(); // Re-fetch state on error
         }
@@ -227,12 +229,12 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
 
     this.apiService.updateGeneratedSow(this.projectId, sow.id, { templateName: sow.templateName }).subscribe({
       next: () => {
-        console.log('SOW name updated successfully.');
+        this.logger.log('SOW name updated successfully.');
         this.editingSowId = null;
       },
       error: (err: any) => {
         alert('Failed to update SOW name.');
-        console.error(err);
+        this.logger.error(err);
         this.cancelSowNameEdit(sow);
       }
     });
@@ -247,11 +249,11 @@ export class ProjectStatusComponent implements OnInit, OnDestroy {
         next: () => {
           // For an immediate UI update, filter the deleted SOW out of the local array
           this.project.generatedSows = this.project.generatedSows.filter((sow: any) => sow.id !== sowToDelete.id);
-          console.log('SOW deleted successfully from the UI.');
+          this.logger.log('SOW deleted successfully from the UI.');
         },
         error: (err: any) => {
           alert('Failed to delete SOW. Please check the console.');
-          console.error(err);
+          this.logger.error(err);
         }
       });
     }

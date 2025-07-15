@@ -2,6 +2,13 @@ import os
 import subprocess
 import json
 from google.cloud import firestore
+import logging
+import sys
+
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO, stream=sys.stdout,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # --- Configuration ---
 PROJECT_ID = os.getenv("GCLOUD_PROJECT", subprocess.check_output("gcloud config get-value project", shell=True, text=True).strip())
@@ -14,10 +21,10 @@ def get_function_url(func_name):
     try:
         command = f"gcloud functions describe {func_name} --project={PROJECT_ID} --region={REGION} --format='value(serviceConfig.uri)'"
         url = subprocess.check_output(command, shell=True, text=True).strip()
-        print(f"  -> Found URL for {func_name}: {url}")
+        logger.info(f"  -> Found URL for {func_name}: {url}")
         return url
     except subprocess.CalledProcessError:
-        print(f"  -> WARNING: Could not find URL for function '{func_name}'. Using placeholder.")
+        logger.warning(f"  -> WARNING: Could not find URL for function '{func_name}'. Using placeholder.")
         return f"https://{func_name}-placeholder-url.a.run.app"
 
 def main():
@@ -25,7 +32,7 @@ def main():
     Connects to Firestore and writes the settings data to the specified document.
     """
     try:
-        print(f"--- Updating Firestore settings in project: {PROJECT_ID} ---")
+        logger.info(f"--- Updating Firestore settings in project: {PROJECT_ID} ---")
         db = firestore.Client(project=PROJECT_ID)
         doc_ref = db.collection(SETTINGS_COLLECTION).document(SETTINGS_DOCUMENT)
 
@@ -46,15 +53,15 @@ def main():
             "create_google_doc_func_url": get_function_url("create-google-doc")
         }
 
-        print(f"\nWriting settings to: '{SETTINGS_COLLECTION}/{SETTINGS_DOCUMENT}'")
+        logger.info(f"\nWriting settings to: '{SETTINGS_COLLECTION}/{SETTINGS_DOCUMENT}'")
         doc_ref.set(settings_data) # Overwrite the document with the complete, correct settings
         
-        print("\n✅ Success! All settings have been written to Firestore.")
+        logger.info("\n✅ Success! All settings have been written to Firestore.")
 
     except Exception as e:
-        print(f"\n❌ An error occurred: {e}")
-        print("Please ensure you have authenticated with 'gcloud auth application-default login'")
-        print("and that the Firestore API is enabled for your project.")
+        logger.critical(f"\n❌ An error occurred: {e}", exc_info=True)
+        logger.error("Please ensure you have authenticated with 'gcloud auth application-default login'")
+        logger.error("and that the Firestore API is enabled for your project.")
 
 if __name__ == "__main__":
     main()
