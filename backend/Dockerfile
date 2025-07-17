@@ -10,7 +10,7 @@ COPY package*.json ./
 RUN npm install --omit=dev
 
 # Copy the rest of the application source code
-COPY server.js .
+COPY *.js ./
 RUN ls -l
 
 

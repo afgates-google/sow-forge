@@ -40,7 +40,7 @@ resource "google_project_iam_member" "master_sa_roles" {
 }
 
 # Instead of project-wide storage admin, grant specific object permissions on each bucket
-resource "google_storage_bucket_iam_member" "master_sa_bucket_access" {
+resource "google_storage_bucket_iam_member" "master_sa_bucket_access_creator" {
   for_each = toset([
     google_storage_bucket.app_buckets["uploads"].name,
     google_storage_bucket.app_buckets["processed_text"].name,
@@ -49,8 +49,33 @@ resource "google_storage_bucket_iam_member" "master_sa_bucket_access" {
     google_storage_bucket.app_buckets["template_samples"].name
   ])
   bucket = each.key
-  # This role allows creating, reading, and deleting OBJECTS, but not the bucket itself.
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.master_sa.email}"
+}
+
+resource "google_storage_bucket_iam_member" "master_sa_bucket_access_viewer" {
+  for_each = toset([
+    google_storage_bucket.app_buckets["uploads"].name,
+    google_storage_bucket.app_buckets["processed_text"].name,
+    google_storage_bucket.app_buckets["batch_output"].name,
+    google_storage_bucket.app_buckets["templates"].name,
+    google_storage_bucket.app_buckets["template_samples"].name
+  ])
+  bucket = each.key
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.master_sa.email}"
+}
+
+resource "google_storage_bucket_iam_member" "master_sa_bucket_access_deleter" {
+  for_each = toset([
+    google_storage_bucket.app_buckets["uploads"].name,
+    google_storage_bucket.app_buckets["processed_text"].name,
+    google_storage_bucket.app_buckets["batch_output"].name,
+    google_storage_bucket.app_buckets["templates"].name,
+    google_storage_bucket.app_buckets["template_samples"].name
+  ])
+  bucket = each.key
+  role   = "roles/storage.legacyBucketWriter"
   member = "serviceAccount:${google_service_account.master_sa.email}"
 }
 
