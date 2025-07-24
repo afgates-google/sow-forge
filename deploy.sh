@@ -84,7 +84,9 @@ echo
 echo "[4/5] Updating function URLs in Firestore..."
 echo "--------------------------------------------"
 # Run the script to update Firestore
+source venv/bin/activate
 python3 setup_firestore_settings.py
+deactivate
 echo "✔ Firestore settings updated with latest function URLs."
 
 

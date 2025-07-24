@@ -76,3 +76,9 @@ variable "deployment_suffix" {
   type        = string
   description = "A unique suffix to force redeployment of functions."
 }
+
+variable "domain" {
+  description = "The domain name for the load balancer."
+  type        = string
+  default     = "example.com"
+}
